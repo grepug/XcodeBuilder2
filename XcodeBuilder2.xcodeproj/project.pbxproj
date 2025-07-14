@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		2AD265582E23BACD009F5057 /* Sharing in Frameworks */ = {isa = PBXBuildFile; productRef = 2AD265572E23BACD009F5057 /* Sharing */; };
+		2AD265752E23BBB5009F5057 /* Lib in Frameworks */ = {isa = PBXBuildFile; productRef = 2AD265742E23BBB5009F5057 /* Lib */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		2AD265092E23BA05009F5057 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +32,7 @@
 		2AD264FA2E23BA03009F5057 /* XcodeBuilder2.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = XcodeBuilder2.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2AD265082E23BA05009F5057 /* XcodeBuilder2Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = XcodeBuilder2Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2AD265122E23BA05009F5057 /* XcodeBuilder2UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = XcodeBuilder2UITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2AD265522E23BA96009F5057 /* Lib */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Lib; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -52,6 +58,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2AD265582E23BACD009F5057 /* Sharing in Frameworks */,
+				2AD265752E23BBB5009F5057 /* Lib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -75,9 +83,11 @@
 		2AD264F12E23BA03009F5057 = {
 			isa = PBXGroup;
 			children = (
+				2AD265252E23BA1C009F5057 /* Packages */,
 				2AD264FC2E23BA03009F5057 /* XcodeBuilder2 */,
 				2AD2650B2E23BA05009F5057 /* XcodeBuilder2Tests */,
 				2AD265152E23BA05009F5057 /* XcodeBuilder2UITests */,
+				2AD265732E23BBB5009F5057 /* Frameworks */,
 				2AD264FB2E23BA03009F5057 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -90,6 +100,21 @@
 				2AD265122E23BA05009F5057 /* XcodeBuilder2UITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		2AD265252E23BA1C009F5057 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				2AD265522E23BA96009F5057 /* Lib */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
+		2AD265732E23BBB5009F5057 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -112,6 +137,8 @@
 			);
 			name = XcodeBuilder2;
 			packageProductDependencies = (
+				2AD265572E23BACD009F5057 /* Sharing */,
+				2AD265742E23BBB5009F5057 /* Lib */,
 			);
 			productName = XcodeBuilder2;
 			productReference = 2AD264FA2E23BA03009F5057 /* XcodeBuilder2.app */;
@@ -195,6 +222,10 @@
 			);
 			mainGroup = 2AD264F12E23BA03009F5057;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				2AD265532E23BAA2009F5057 /* XCLocalSwiftPackageReference "Packages/Lib" */,
+				2AD265562E23BACD009F5057 /* XCRemoteSwiftPackageReference "swift-sharing" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2AD264FB2E23BA03009F5057 /* Products */;
 			projectDirPath = "";
@@ -551,6 +582,36 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		2AD265532E23BAA2009F5057 /* XCLocalSwiftPackageReference "Packages/Lib" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/Lib;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		2AD265562E23BACD009F5057 /* XCRemoteSwiftPackageReference "swift-sharing" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-sharing.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2AD265572E23BACD009F5057 /* Sharing */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2AD265562E23BACD009F5057 /* XCRemoteSwiftPackageReference "swift-sharing" */;
+			productName = Sharing;
+		};
+		2AD265742E23BBB5009F5057 /* Lib */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Lib;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 2AD264F22E23BA03009F5057 /* Project object */;
 }
