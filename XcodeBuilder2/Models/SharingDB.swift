@@ -11,7 +11,11 @@ import SharingGRDB
 import Core
 
 @Table
-struct ProjectModel {
+struct ProjectModel: Identifiable {
+    var id: String {
+        bundle_identifier
+    }
+    
     var bundle_identifier: String
     var name: String
     var display_name: String

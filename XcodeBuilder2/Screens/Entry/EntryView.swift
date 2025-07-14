@@ -27,6 +27,11 @@ struct EntryView: View {
         } detail: {
             
         }
+        .onChange(of: items.map(\.id)) { oldValue, newValue in
+            if let id = selectedProjectId, !newValue.contains(id) {
+                selectedProjectId = nil
+            }
+        }
     }
 
     var content: some View {
