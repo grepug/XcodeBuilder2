@@ -138,7 +138,7 @@ private extension XcodeBuildManager {
                 exportPath: exportPath,
             )
             
-            try await command.run()
+            try await runShellCommandComplete(command.string)
             
             logger.info("Package dependencies resolved successfully.")
         } catch {
@@ -176,7 +176,7 @@ private extension XcodeBuildManager {
                         
                         try await Task.sleep(for: .seconds(delaySeconds))
                         
-                        try await command.run()
+                        try await runShellCommandComplete(command.string)
                         
                         logger.info("Project archived successfully at \(archivePath)")
                         
@@ -236,10 +236,10 @@ private extension XcodeBuildManager {
                     switch option {
                     case .appStore:
                         self.logger.info("Exporting archive for platform \(platform) to App Store")
-                        try await exportToAppStoreCommand.run()
+                        try await runShellCommandComplete(exportToAppStoreCommand.string)
                     case .releaseTesting:
                         self.logger.info("Exporting archive for platform \(platform) to Release Testing at \(exportToReleaseTestingCommand.exportOption!)")
-                        try await exportToReleaseTestingCommand.run()
+                        try await runShellCommandComplete(exportToReleaseTestingCommand.string)
                         _ = try await uploader.upload(project: project, version: version, ipaPath: exportToReleaseTestingCommand.exportPath!)
                     }
                 }
@@ -262,8 +262,8 @@ private extension XcodeBuildManager {
     }
 }
 
-private extension XcodeBuildCommand {
-    func run() async throws {
-        try await runShellCommandComplete(command)
-    }
-}
+//private extension XcodeBuildCommand {
+//    func run() async throws {
+//        try await runShellCommandComplete(command)
+//    }
+//}

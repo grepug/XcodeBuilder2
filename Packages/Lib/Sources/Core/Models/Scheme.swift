@@ -1,9 +1,8 @@
 import Foundation
 
 public struct Scheme: Codable, Sendable, Hashable, Identifiable {
-    let name: String
-    
-    let platforms: [Platform]
+    public var name: String
+    public var platforms: [Platform]
 
     public var id: String {
         name

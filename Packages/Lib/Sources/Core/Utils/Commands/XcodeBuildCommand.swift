@@ -1,19 +1,24 @@
 import Foundation
 
-struct Version {
-    let version: String
-    let buildNumber: Int
+public struct Version: Sendable {
+    public let version: String
+    public let buildNumber: Int
 
-    var string: String {
+    public var string: String {
         "\(version).\(buildNumber)"
     }
 
-    var tagName: String {
+    public var tagName: String {
         "v\(version)_\(buildNumber)"
+    }
+    
+    public init(version: String, buildNumber: Int) {
+        self.version = version
+        self.buildNumber = buildNumber
     }
 }
 
-struct XcodeBuildCommand {
+struct XcodeBuildCommand: Sendable {
     enum Kind: Codable {
         case archive, exportArchive, resolvePackageDependencies
 
@@ -60,7 +65,7 @@ struct XcodeBuildCommand {
         return "-scheme \"\(scheme.name)\""
     }
 
-    var command: String {
+    var string: String {
         """
         xcodebuild \
         -project \(project.path) \

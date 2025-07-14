@@ -1,9 +1,13 @@
 import Foundation
 
-public enum Platform: String, Codable, Sendable, Hashable {
+public enum Platform: String, Codable, Sendable, Hashable, Identifiable, CaseIterable {
     case iOS
     case macOS
     case macCatalyst
+    
+    public var id: Self {
+        self
+    }
 
     public var destination: Destination {
         switch self {

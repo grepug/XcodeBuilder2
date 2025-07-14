@@ -14,6 +14,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-sharing.git", from: "2.5.2"),
+        .package(url: "https://github.com/pointfreeco/sharing-grdb.git", from: "0.5.0"),
     ],
     targets: [ 
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -21,8 +22,9 @@ let package = Package(
         .target(
             name: "Core",
             dependencies: [
-                .product(name: "Sharing", package: "swift-sharing")
-            ], 
+                .product(name: "Sharing", package: "swift-sharing"),
+                .product(name: "SharingGRDB", package: "sharing-grdb"),
+            ],
             path: "Sources/Core",
         ),
         .testTarget(

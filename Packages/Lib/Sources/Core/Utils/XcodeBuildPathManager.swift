@@ -1,7 +1,7 @@
 import Foundation
 import Dependencies
 
-protocol XcodeBuildPathManager: Sendable {
+public protocol XcodeBuildPathManager: Sendable {
     func projectPath(for project: Project, version: Version) -> String
     func xcodeprojPath(for project: Project, version: Version) -> String
     func derivedDataPath(for project: Project, version: Version) -> String
@@ -57,11 +57,11 @@ struct XcodeBuildPathManagerLive: XcodeBuildPathManager {
     }
 }
 
-struct XcodeBuildPathManagerKey: DependencyKey {
-    static let liveValue: XcodeBuildPathManager = XcodeBuildPathManagerLive()
+public struct XcodeBuildPathManagerKey: DependencyKey {
+    public static let liveValue: XcodeBuildPathManager = XcodeBuildPathManagerLive()
 }
 
-extension DependencyValues {
+public extension DependencyValues {
     var xcodeBuildPathManager: XcodeBuildPathManager {
         get { self[XcodeBuildPathManagerKey.self] }
         set { self[XcodeBuildPathManagerKey.self] = newValue }

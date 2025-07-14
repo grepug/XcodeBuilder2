@@ -20,7 +20,7 @@ public struct Project: Codable, Sendable, Hashable, Identifiable {
         bundleIdentifier
     }
 
-    public init(bundleIdentifier: String, path: String, name: String, displayName: String, gitRepoURL: URL, xcodeprojName: String, schemes: [Scheme]) {
+    public init(bundleIdentifier: String = "", path: String = "", name: String = "", displayName: String = "", gitRepoURL: URL = .init(string: "https://github.com")!, xcodeprojName: String = "", schemes: [Scheme] = []) {
         self.bundleIdentifier = bundleIdentifier
         self.name = name
         self.path = path
