@@ -1,6 +1,13 @@
 import Foundation
 
-public struct Version: Sendable {
+public struct Version: Sendable, Hashable, Codable, Comparable {
+    public static func < (lhs: Version, rhs: Version) -> Bool {
+        if lhs.version == rhs.version {
+            return lhs.buildNumber < rhs.buildNumber
+        }
+        return lhs.version < rhs.version
+    }
+    
     public let version: String
     public let buildNumber: Int
 

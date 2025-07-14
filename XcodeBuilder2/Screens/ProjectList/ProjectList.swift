@@ -10,11 +10,13 @@ import Core
 
 struct ProjectList: View {
     var projects: [Project]
+    @Binding var selection: String?
     var onDelete: ((Project) -> Void)!
     
     var body: some View {
-        List(projects) { project in
-            projectView(for: project)
+        List(projects, selection: $selection) { project in
+            ProjectListItemView(project: project)
+                .tag(project.id)
                 .contextMenu {
                     Button(role: .destructive, action: {
                         onDelete(project)
@@ -24,11 +26,8 @@ struct ProjectList: View {
                 }
                 .padding(.vertical, 4)
         }
-    }
-    
-    func projectView(for project: Project) -> some View {
-        NavigationLink(destination: EmptyView()) {
-            ProjectListItemView(project: project)
+        .onChange(of: selection) { oldValue, newValue in
+            print("Selection changed from \(oldValue ?? "nil") to \(newValue ?? "nil")")
         }
     }
 }
@@ -38,5 +37,5 @@ struct ProjectList: View {
         .init(displayName: "Context", gitRepoURL: URL(string: "https://github.com/grepug/ContextBackendModelsTest.git")!),
         .init(displayName: "Life Sticker"),
         .init(displayName: "Vis"),
-    ])
+    ], selection: .constant(nil))
 }

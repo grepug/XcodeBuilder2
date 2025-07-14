@@ -47,7 +47,7 @@ struct SchemeModel {
 }
 
 @Table
-struct BuildModel {
+struct BuildModel: Identifiable {
     var id: UUID
     var scheme_id: UUID
     var version_string: String
@@ -55,6 +55,16 @@ struct BuildModel {
     var created_at: Date = .now
     var start_date: Date?
     var end_date: Date?
+    
+    init(id: UUID = .init(), scheme_id: UUID = .init(), version_string: String = "1.0.0", build_number: Int = 1, created_at: Date = .now, start_date: Date? = nil, end_date: Date? = nil) {
+        self.id = id
+        self.scheme_id = scheme_id
+        self.version_string = version_string
+        self.build_number = build_number
+        self.created_at = created_at
+        self.start_date = start_date
+        self.end_date = end_date
+    }
 }
 
 extension DatabaseWriter where Self == DatabaseQueue {

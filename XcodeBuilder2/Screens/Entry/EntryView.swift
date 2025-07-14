@@ -16,42 +16,73 @@ struct EntryView: View {
     @Dependency(\.defaultDatabase) var db
     
     @State var editingProjectItem: Project?
+    @State private var selectedProjectId: String?
     
     var body: some View {
         NavigationSplitView {
-            ProjectList(projects: items.map { $0.toProject() }) { item in
-                Task {
-                    try! await delete(id: item.bundleIdentifier)
-                }
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigation) {
-                    Button(action: {
-                        editingProjectItem = .init()
-                    }) {
-                        Label("Add Project", systemImage: "plus")
-                    }
-                }
-            }
-            .sheet(item: $editingProjectItem) { project in
-                ProjectEditorView(project: .init {
-                    project
-                } set: { project in
-                    editingProjectItem = project
-                }, dismiss: { editingProjectItem = nil }) {
-                    if let project = editingProjectItem {
-                        editingProjectItem = nil
-                        
-                        Task {
-                            try! await saveProject(project)
-                        }
-                    }
-                }
-                .frame(width: 700)
-                .presentationSizing(.fitted)
-            }
+            projectList
+        } content: {
+            content
         } detail: {
             
+        }
+    }
+
+    var content: some View {
+        Group {
+            if let selectedProjectId {
+                ProjectDetailViewContainer(id: selectedProjectId)
+            } else {
+                Text("Select a project to view details")
+                    .foregroundColor(.secondary)
+                    .padding()
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    
+                } label: {
+                    Text("New Build")
+                }
+            }
+        }
+    }
+    
+    var projectList: some View {
+        ProjectList(
+            projects: items.map { $0.toProject() },
+            selection: $selectedProjectId,
+        ) { item in
+            Task {
+                try! await delete(id: item.bundleIdentifier)
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button(action: {
+                    editingProjectItem = .init()
+                }) {
+                    Label("Add Project", systemImage: "plus")
+                }
+            }
+        }
+        .sheet(item: $editingProjectItem) { project in
+            ProjectEditorView(project: .init {
+                project
+            } set: { project in
+                editingProjectItem = project
+            }, dismiss: { editingProjectItem = nil }) {
+                if let project = editingProjectItem {
+                    editingProjectItem = nil
+                    
+                    Task {
+                        try! await saveProject(project)
+                    }
+                }
+            }
+            .frame(width: 700)
+            .presentationSizing(.fitted)
         }
     }
     
