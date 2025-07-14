@@ -1,8 +1,12 @@
 import Foundation
 
-public enum ExportOption: String, Codable, Sendable, CaseIterable, Identifiable {
+public enum ExportOption: String, Codable, Sendable, CaseIterable, Identifiable, Comparable {
     case releaseTesting = "Release Testing"
     case appStore = "App Store"
+    
+    public static func < (lhs: ExportOption, rhs: ExportOption) -> Bool {
+        lhs.rawValue < rhs.rawValue
+    }
     
     public var id: Self {
         self

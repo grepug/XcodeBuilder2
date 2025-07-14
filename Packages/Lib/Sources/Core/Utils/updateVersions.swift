@@ -23,7 +23,7 @@ func updateVersions(url: URL, version: String, buildNumber: String) {
             if fileURL.lastPathComponent == "project.pbxproj" {
                 print("Processing \(fileURL.path)...")
                 do {
-                    var content = try String(contentsOf: fileURL)
+                    var content = try String(contentsOf: fileURL, encoding: .utf8)
                     // Update MARKETING_VERSION
                     content = content.replacingOccurrences(
                         of: #"MARKETING_VERSION = [^;]+"#,

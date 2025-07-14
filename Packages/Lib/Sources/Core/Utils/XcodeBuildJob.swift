@@ -15,7 +15,7 @@ public struct XcodeBuildPayload {
     }
 }
 
-public struct XcodeBuildProgress {
+public struct XcodeBuildProgress: Sendable {
     public let progress: Double
     public let message: String
     public var isFinished = false
@@ -183,10 +183,11 @@ private extension XcodeBuildJob {
         
         logger.info("Archiving project \(payload.project.name)")
         
-        let platforms = payload.project.schemes.flatMap { $0.platforms }
+        let platforms = scheme.platforms
         let archivePath = archivePath
         
         assert(!platforms.isEmpty, "No platforms found in project \(payload.project.name)")
+        assert(Set(platforms).count == platforms.count, "Duplicate platforms found: \(platforms)")
         
         let commands = platforms.map { platform in
             XcodeBuildCommand(
@@ -208,8 +209,6 @@ private extension XcodeBuildJob {
                         let delaySeconds = Double(index) * 60 * 0.3
                         
                         try await Task.sleep(for: .seconds(delaySeconds))
-                        
-//                        try await runShellCommandComplete(command.string)
                         
                         logger.info("Running archive command: \(command.string)")
                         
@@ -294,7 +293,7 @@ private extension XcodeBuildJob {
         logger.info("Cleaning up project at \(xcodeprojPath)")
         do {
             try FileManager.default.removeItem(atPath: derivedDataPath)
-            try FileManager.default.removeItem(atPath: xcodeprojPath)
+//            try FileManager.default.removeItem(atPath: projectPath)
 
             logger.info("Project cleaned up successfully.")
         } catch {

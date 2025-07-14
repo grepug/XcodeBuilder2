@@ -14,7 +14,6 @@ struct BuildEditorContainer: View {
     
     @State private var buildModel = BuildModel()
     @State private var versions: [Version] = []
-    
     @State private var versionSelection: Version?
     
     @Fetch var fetchedValue: ProjectDetailRequest.Result?
@@ -46,7 +45,8 @@ struct BuildEditorContainer: View {
                     schemeName: schemeName,
                     version: version,
                     exportOptions: buildModel.exportOptions,
-                )
+                ),
+                buildId: buildModel.id,
             )
         }
         .task(id: project) {
@@ -79,7 +79,7 @@ struct BuildEditor: View {
     }
     
     var disabled: Bool {
-        xcodeBuildCommandString == nil
+        xcodeBuildCommandString == nil || build.exportOptions.isEmpty
     }
     
     var sortedVersions: [Version] {
@@ -105,7 +105,7 @@ struct BuildEditor: View {
             version: version,
             platform: platform,
             exportOption: nil,
-            projectPath: pathManager.projectPath(for: project, version: version),
+            projectPath: pathManager.xcodeprojPath(for: project, version: version),
             archivePath: pathManager.archivePath(for: project, version: version),
             derivedDataPath: pathManager.derivedDataPath(for: project, version: version),
             exportPath: nil
@@ -150,7 +150,7 @@ struct BuildEditor: View {
                 
                 LabeledContent {
                     MultipleSelectionPicker(
-                        items: ExportOption.allCases,
+                        items: ExportOption.allCases.sorted(),
                         selection: $build.exportOptions.toSet()
                     ) { item in
                         Text(item.rawValue)
