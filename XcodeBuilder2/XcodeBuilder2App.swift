@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Dependencies
 
 @main
 struct XcodeBuilder2App: App {

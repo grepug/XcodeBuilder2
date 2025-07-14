@@ -19,6 +19,8 @@ struct BuildEditorContainer: View {
     
     @Fetch var fetchedValue: ProjectDetailRequest.Result?
     
+    @Environment(BuildManager.self) private var buildManager
+    
     var project: Project {
         fetchedValue?.project ?? Project(displayName: "Loading...")
     }
@@ -30,7 +32,22 @@ struct BuildEditorContainer: View {
             versions: versions,
             versionSelection: $versionSelection,
         ) {
+            guard let version = versionSelection else {
+                return
+            }
             
+            guard let schemeName = project.schemes.first(where: { $0.id == buildModel.scheme_id })?.name else {
+                return
+            }
+            
+            buildManager.createJob(
+                payload: .init(
+                    project: project,
+                    schemeName: schemeName,
+                    version: version,
+                    exportOptions: buildModel.exportOptions,
+                )
+            )
         }
         .task(id: project) {
             if !project.bundleIdentifier.isEmpty {
@@ -130,6 +147,17 @@ struct BuildEditor: View {
                     Text(platformString)
                 } label: {
                     Text("Build Platforms:")
+                }
+                
+                LabeledContent {
+                    MultipleSelectionPicker(
+                        items: ExportOption.allCases,
+                        selection: $build.exportOptions.toSet()
+                    ) { item in
+                        Text(item.rawValue)
+                    }
+                } label: {
+                    Text("Export Options:")
                 }
             } header: {
                 Text(project.displayName)

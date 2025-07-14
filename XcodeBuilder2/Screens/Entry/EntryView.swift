@@ -10,6 +10,8 @@ import Core
 import Sharing
 import SharingGRDB
 
+
+
 struct EntryView: View {
     @FetchAll var items: [ProjectModel]
     
@@ -18,6 +20,7 @@ struct EntryView: View {
     @State var editingProjectItem: Project?
     @State private var selectedProjectId: String?
     @State private var showingNewBuildSheet = false
+    @State var buildManager = BuildManager()
     
     var body: some View {
         NavigationSplitView {
@@ -27,6 +30,7 @@ struct EntryView: View {
         } detail: {
             
         }
+        .environment(buildManager)
         .onChange(of: items.map(\.id)) { oldValue, newValue in
             if let id = selectedProjectId, !newValue.contains(id) {
                 selectedProjectId = nil

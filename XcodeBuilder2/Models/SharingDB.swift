@@ -57,11 +57,24 @@ struct BuildModel: Identifiable {
     var scheme_id: UUID
     var version_string: String
     var build_number: Int
+    var export_options: String
     var created_at: Date = .now
     var start_date: Date?
     var end_date: Date?
     
-    init(id: UUID = .init(), scheme_id: UUID = .init(), version_string: String = "1.0.0", build_number: Int = 1, created_at: Date = .now, start_date: Date? = nil, end_date: Date? = nil) {
+    var exportOptions: [ExportOption] {
+        get {
+            export_options.split(separator: ",").compactMap { optionString in
+                ExportOption(rawValue: String(optionString))
+            }
+        }
+        
+        set {
+            export_options = newValue.map { $0.rawValue }.joined(separator: ",")
+        }
+    }
+    
+    init(id: UUID = .init(), scheme_id: UUID = .init(), version_string: String = "1.0.0", build_number: Int = 1, created_at: Date = .now, start_date: Date? = nil, end_date: Date? = nil, export_options: [ExportOption] = []) {
         self.id = id
         self.scheme_id = scheme_id
         self.version_string = version_string
@@ -69,6 +82,7 @@ struct BuildModel: Identifiable {
         self.created_at = created_at
         self.start_date = start_date
         self.end_date = end_date
+        self.export_options = export_options.map { $0.rawValue }.joined(separator: ",")
     }
 }
 
@@ -126,6 +140,7 @@ extension DatabaseWriter where Self == DatabaseQueue {
                     "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     "start_date" DATETIME,
                     "end_date" DATETIME,
+                    "export_options" TEXT NOT NULL,
                     FOREIGN KEY("scheme_id") REFERENCES "schemeModels"(id) ON DELETE CASCADE
                 )
                 """

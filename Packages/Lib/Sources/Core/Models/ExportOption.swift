@@ -1,8 +1,12 @@
 import Foundation
 
-public enum ExportOption: String, Codable, Sendable {
-    case releaseTesting = "rt"
-    case appStore = "as"
+public enum ExportOption: String, Codable, Sendable, CaseIterable, Identifiable {
+    case releaseTesting = "Release Testing"
+    case appStore = "App Store"
+    
+    public var id: Self {
+        self
+    }
 
     public var message: String {
         switch self {

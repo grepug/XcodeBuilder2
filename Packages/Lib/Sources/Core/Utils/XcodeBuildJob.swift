@@ -1,40 +1,53 @@
 import Foundation
 import Dependencies
 
-struct XcodeBuildPayload {
+public struct XcodeBuildPayload {
     let project: Project
     let schemeName: String
     let version: Version
-    let exportOptions: Set<ExportOption>
+    let exportOptions: [ExportOption]
+    
+    public init(project: Project, schemeName: String, version: Version, exportOptions: [ExportOption]) {
+        self.project = project
+        self.schemeName = schemeName
+        self.version = version
+        self.exportOptions = exportOptions
+    }
 }
 
-struct XcodeBuildProgress {
-    let progress: Double
-    let message: String
-    var isFinished = false
+public struct XcodeBuildProgress {
+    public let progress: Double
+    public let message: String
+    public var isFinished = false
 }
 
-struct XcodeBuildLogger: Sendable {
+public struct XcodeBuildLogger: Sendable {
     var info: @Sendable (String) -> Void
     var warning: @Sendable (String) -> Void
     var error: @Sendable (String) -> Void
+    
+    public init(info: @escaping @Sendable (String) -> Void, warning: @escaping @Sendable (String) -> Void, error: @escaping @Sendable (String) -> Void) {
+        self.info = info
+        self.warning = warning
+        self.error = error
+    }
 }
 
-actor XcodeBuildManager: Sendable {
+public actor XcodeBuildJob: Sendable {
     let payload: XcodeBuildPayload
     let logger: XcodeBuildLogger
     
-    typealias Stream = AsyncThrowingStream<XcodeBuildProgress, Error>
+    public typealias Stream = AsyncThrowingStream<XcodeBuildProgress, Error>
     
     @Dependency(\.xcodeBuildPathManager) var pathManager
     @Dependency(\.ipaUploader) var ipaUploader
     
-    init(payload: XcodeBuildPayload, logger: XcodeBuildLogger) {
+    public init(payload: XcodeBuildPayload, logger: XcodeBuildLogger) {
         self.payload = payload
         self.logger = logger
     }
     
-    func startBuild() -> Stream {
+    public func startBuild() -> Stream {
         // Implementation for starting the build process
         // This would typically involve invoking xcodebuild with the appropriate parameters
         
@@ -83,21 +96,22 @@ actor XcodeBuildManager: Sendable {
     }
 }
 
-private extension XcodeBuildManager {
+private extension XcodeBuildJob {
     var projectPath: String {
-        pathManager.projectPath(for: payload.project, version: payload.version)
+        ensuredPath(pathManager.projectPath(for: payload.project, version: payload.version))
     }
     
     var archivePath: String {
-        pathManager.archivePath(for: payload.project, version: payload.version)
+        ensuredPath(pathManager.archivePath(for: payload.project, version: payload.version))
     }
     
     var derivedDataPath: String {
-        pathManager.derivedDataPath(for: payload.project, version: payload.version)
+        ensuredPath(pathManager.derivedDataPath(for: payload.project, version: payload.version))
     }
     
     var exportPath: String? {
         pathManager.exportPath(for: payload.project, version: payload.version)
+            .map { ensuredPath($0) }
     }
     
     var scheme: Scheme {
@@ -201,8 +215,10 @@ private extension XcodeBuildManager {
         
         if platform != .iOS {
             // Remove release testing option for non-iOS platforms
-            exportOptions.remove(.releaseTesting)
+            exportOptions.removeAll { $0 == .releaseTesting }
         }
+        
+        assert(Set(exportOptions).count == exportOptions.count, "Duplicate export options found: \(exportOptions)")
 
         let exportToAppStoreCommand = XcodeBuildCommand(
             kind: .exportArchive,

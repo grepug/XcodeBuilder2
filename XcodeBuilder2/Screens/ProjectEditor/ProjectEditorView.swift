@@ -87,13 +87,7 @@ struct ProjectEditorView: View {
         HStack(spacing: 16) {
             TextField("Scheme \(index + 1):", text: scheme.name)
             
-            let selectionBinding = Binding<Set<Platform>> {
-                Set(scheme.wrappedValue.platforms)
-            } set: { items in
-                scheme.wrappedValue.platforms = Array(items)
-            }
-            
-            MultipleSelectionPicker(items: Platform.allCases, selection: selectionBinding) { item in
+            MultipleSelectionPicker(items: Platform.allCases, selection: scheme.platforms.toSet()) { item in
                 Text(item.rawValue)
             }
             
@@ -153,6 +147,32 @@ extension Binding where Value == URL {
                 } else {
                     // Handle invalid URL case if needed
                 }
+            }
+        )
+    }
+}
+
+extension Binding {
+    func toSet<T, K: Hashable>(transform: @escaping (T) -> K) -> Binding<Set<K>> where Value == [T] {
+        Binding<Set<K>>(
+            get: { Set(wrappedValue.map(transform)) },
+            set: { newValue in
+                wrappedValue = Array(newValue.map { item in
+                    if let item = wrappedValue.first(where: { transform($0) == item }) {
+                        return item
+                    } else {
+                        fatalError("Item not found in original array")
+                    }
+                })
+            }
+        )
+    }
+    
+    func toSet<T>() -> Binding<Set<T>> where Value == [T] {
+        Binding<Set<T>>(
+            get: { Set(wrappedValue) },
+            set: { newValue in
+                wrappedValue = Array(newValue)
             }
         )
     }
