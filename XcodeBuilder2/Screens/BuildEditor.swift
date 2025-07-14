@@ -39,15 +39,17 @@ struct BuildEditorContainer: View {
                 return
             }
             
-            buildManager.createJob(
-                payload: .init(
-                    project: project,
-                    schemeName: schemeName,
-                    version: version,
-                    exportOptions: buildModel.exportOptions,
-                ),
-                buildId: buildModel.id,
-            )
+            Task {
+                await buildManager.createJob(
+                    payload: .init(
+                        project: project,
+                        schemeName: schemeName,
+                        version: version,
+                        exportOptions: buildModel.exportOptions,
+                    ),
+                    buildModel: buildModel,
+                )
+            }
         }
         .task(id: project) {
             if !project.bundleIdentifier.isEmpty {
