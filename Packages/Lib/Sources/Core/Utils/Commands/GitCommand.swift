@@ -3,20 +3,22 @@ import Foundation
 public struct GitCommand {
     let path: String
 
-    func clone(remoteURL: URL, branch: String? = nil, tag: String? = nil, onlyLatestDepth: Bool = false) async throws {
+    func clone(remoteURL: URL, branch: String? = nil, tag: String? = nil, onlyLatestDepth: Bool = true) async throws {
         var command = "git clone \(remoteURL.absoluteString) \(path)"
         
-        if let branch = branch {
+        if let tag {
+            command += " --branch \(tag)"
+        } else if let branch {
             command += " --branch \(branch)"
         }
-        if let tag = tag {
-            command += " --tag \(tag)"
-        }
+        
         if onlyLatestDepth {
             command += " --depth 1"
         }
+        
+        print("git command:", command)
 
-        try await runShellCommandComplete(command)
+        try await runShellCommand2(command).get()
     }
     
     public static func fetchVersions(remoteURL: URL) async throws -> [Version] {
@@ -50,3 +52,5 @@ public struct GitCommand {
         return versions
     }
 }
+
+//xcodebuild -project /Users/kai/Documents/xcode-builder/context/v2.1.3_263/ContextApp.xcodeproj -skipMacroValidation -skipPackagePluginValidation -derivedDataPath /Users/kai/Documents/xcode-builder/context/v2.1.3_263/DerivedData -archivePath /Users/kai/Documents/xcode-builder/context/v2.1.3_263/Archives/v2.1.3_263.xcarchive -scheme "Beta Release" -destination "generic/platform=iOS"  -exportPath /Users/kai/Documents/xcode-builder/context/v2.1.3_263/Exports/v2.1.3_263 -resolvePackageDependencies

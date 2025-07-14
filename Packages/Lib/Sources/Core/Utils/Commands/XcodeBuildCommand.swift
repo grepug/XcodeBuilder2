@@ -39,7 +39,6 @@ public struct XcodeBuildCommand: Sendable {
     }
 
     let kind: Kind
-    let project: Project
     var scheme: Scheme
     var version: Version
     var platform: Platform
@@ -79,7 +78,7 @@ public struct XcodeBuildCommand: Sendable {
         -project \(projectPath) \
         -skipMacroValidation \
         -skipPackagePluginValidation \
-        \(derivedDataPath) \
+        -derivedDataPath \(derivedDataPath) \
         -archivePath \(archivePath) \
         \(schemeString) \
         \(sdkString) \
@@ -89,9 +88,8 @@ public struct XcodeBuildCommand: Sendable {
         """
     }
     
-    public init(kind: Kind, project: Project, scheme: Scheme, version: Version, platform: Platform, exportOption: ExportOption? = nil, projectPath: String, archivePath: String, derivedDataPath: String, exportPath: String?) {
+    public init(kind: Kind, scheme: Scheme, version: Version, platform: Platform, exportOption: ExportOption? = nil, projectPath: String, archivePath: String, derivedDataPath: String, exportPath: String?) {
         self.kind = kind
-        self.project = project
         self.scheme = scheme
         self.version = version
         self.platform = platform

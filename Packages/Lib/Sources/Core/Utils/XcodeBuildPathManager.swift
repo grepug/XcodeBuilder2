@@ -19,7 +19,6 @@ struct XcodeBuildPathManagerLive: XcodeBuildPathManager {
     func rootURL(for project: Project, version: Version) -> URL {
         rootURL
             .appending(path: project.name)
-            .appending(path: version.version)
             .appending(path: version.tagName)
     }
 
@@ -30,15 +29,15 @@ struct XcodeBuildPathManagerLive: XcodeBuildPathManager {
     }
 
     func xcodeprojPath(for project: Project, version: Version) -> String {
-        rootURL(for: project, version: version)
-            .appending(path: "\(project.xcodeprojName).xcodeproj")
+        URL(filePath: projectPath(for: project, version: version))
+            .appending(path: project.xcodeprojName)
+            .appendingPathExtension("xcodeproj")
             .path()
     }
 
     func derivedDataPath(for project: Project, version: Version) -> String {
         rootURL(for: project, version: version)
             .appending(path: "DerivedData")
-            .appending(path: "\(project.name)_\(version.string)")
             .path()
     }
 

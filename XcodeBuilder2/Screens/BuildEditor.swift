@@ -101,7 +101,6 @@ struct BuildEditor: View {
         
         return XcodeBuildCommand(
             kind: .archive,
-            project: project,
             scheme: scheme,
             version: version,
             platform: platform,

@@ -80,15 +80,15 @@ public actor XcodeBuildJob: Sendable {
     func build(continuation: Stream.Continuation) async throws {
         try await cloneRepository()
         
-        continuation.yield(.init(progress: 0.1, message: "Cloning repository..."))
+        continuation.yield(.init(progress: 0.1, message: "Cloned repository..."))
         
         try await resolvePackageDependencies()
         
-        continuation.yield(.init(progress: 0.3, message: "Resolving package dependencies..."))
+        continuation.yield(.init(progress: 0.3, message: "Resolved package dependencies..."))
         
         try await archiveProject()
         
-        continuation.yield(.init(progress: 0.9, message: "Archiving project..."))
+        continuation.yield(.init(progress: 0.9, message: "Archived project..."))
 
         try await cleanup()
         
@@ -99,6 +99,10 @@ public actor XcodeBuildJob: Sendable {
 private extension XcodeBuildJob {
     var projectPath: String {
         ensuredPath(pathManager.projectPath(for: payload.project, version: payload.version))
+    }
+    
+    var xcodeprojPath: String {
+        ensuredPath(pathManager.xcodeprojPath(for: payload.project, version: payload.version))
     }
     
     var archivePath: String {
@@ -125,9 +129,20 @@ private extension XcodeBuildJob {
         logger.info("Cloning repository at \(payload.project.gitRepoURL)")
         
         do {
-            try await GitCommand(path: projectPath).clone(remoteURL: payload.project.gitRepoURL)
-
+            try await GitCommand(path: projectPath).clone(
+                remoteURL: payload.project.gitRepoURL,
+                tag: payload.version.tagName,
+            )
+            
             logger.info("Repository cloned successfully.")
+            
+            updateVersions(
+                url: URL(filePath: projectPath),
+                version: payload.version.version,
+                buildNumber: "\(payload.version.buildNumber)",
+            )
+            
+            logger.info("Updated project versions to \(payload.version.version) (build \(payload.version.buildNumber))")
         } catch {
             logger.error("Failed to clone repository: \(error.localizedDescription)")
             
@@ -143,17 +158,18 @@ private extension XcodeBuildJob {
             
             let command = XcodeBuildCommand(
                 kind: .resolvePackageDependencies,
-                project: payload.project,
                 scheme: scheme,
                 version: payload.version,
                 platform: firstPlatform,
-                projectPath: projectPath,
+                projectPath: xcodeprojPath,
                 archivePath: archivePath,
                 derivedDataPath: derivedDataPath,
                 exportPath: exportPath,
             )
             
-            try await runShellCommandComplete(command.string)
+            print("command2: \(command.string)")
+            
+            try await runShellCommand2(command.string).get()
             
             logger.info("Package dependencies resolved successfully.")
         } catch {
@@ -170,14 +186,15 @@ private extension XcodeBuildJob {
         let platforms = payload.project.schemes.flatMap { $0.platforms }
         let archivePath = archivePath
         
+        assert(!platforms.isEmpty, "No platforms found in project \(payload.project.name)")
+        
         let commands = platforms.map { platform in
             XcodeBuildCommand(
                 kind: .archive,
-                project: payload.project,
                 scheme: scheme,
                 version: payload.version,
                 platform: platform,
-                projectPath: projectPath,
+                projectPath: xcodeprojPath,
                 archivePath: archivePath,
                 derivedDataPath: derivedDataPath,
                 exportPath: exportPath
@@ -192,7 +209,13 @@ private extension XcodeBuildJob {
                         
                         try await Task.sleep(for: .seconds(delaySeconds))
                         
-                        try await runShellCommandComplete(command.string)
+//                        try await runShellCommandComplete(command.string)
+                        
+                        logger.info("Running archive command: \(command.string)")
+                        
+                        for try await output in await runShellCommand2(command.string) {
+                            print("output: \(output)")
+                        }
                         
                         logger.info("Project archived successfully at \(archivePath)")
                         
@@ -222,12 +245,11 @@ private extension XcodeBuildJob {
 
         let exportToAppStoreCommand = XcodeBuildCommand(
             kind: .exportArchive,
-            project: payload.project,
             scheme: scheme,
             version: payload.version,
             platform: platform,
             exportOption: .appStore,
-            projectPath: projectPath,
+            projectPath: xcodeprojPath,
             archivePath: archivePath,
             derivedDataPath: derivedDataPath,
             exportPath: nil,
@@ -235,12 +257,11 @@ private extension XcodeBuildJob {
 
         let exportToReleaseTestingCommand = XcodeBuildCommand(
             kind: .exportArchive,
-            project: payload.project,
             scheme: scheme,
             version: payload.version,
             platform: platform,
             exportOption: .releaseTesting,
-            projectPath: projectPath,
+            projectPath: xcodeprojPath,
             archivePath: archivePath,
             derivedDataPath: derivedDataPath,
             exportPath: exportPath,
@@ -270,10 +291,10 @@ private extension XcodeBuildJob {
     }
 
     func cleanup() async throws {
-        logger.info("Cleaning up project at \(projectPath)")
+        logger.info("Cleaning up project at \(xcodeprojPath)")
         do {
             try FileManager.default.removeItem(atPath: derivedDataPath)
-            try FileManager.default.removeItem(atPath: projectPath)
+            try FileManager.default.removeItem(atPath: xcodeprojPath)
 
             logger.info("Project cleaned up successfully.")
         } catch {
