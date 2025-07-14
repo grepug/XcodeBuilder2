@@ -10,6 +10,8 @@ import Core
 
 struct ProjectEditorView: View {
     @Binding var project: Project
+    var dismiss: (() -> Void)!
+    var save: (() -> Void)!
     
     var body: some View {
         Form {
@@ -41,6 +43,7 @@ struct ProjectEditorView: View {
                         project.schemes.remove(at: index)
                     }
                 }
+                .padding(.bottom)
                 
                 Button {
                     let number = project.schemes.count + 1
@@ -54,10 +57,16 @@ struct ProjectEditorView: View {
             }
             
             Section {
-                Button("Save") {
-                    // Handle save action
+                HStack {
+                    Button("Save") {
+                        save!()
+                    }
+                    .buttonStyle(.borderedProminent)
+                        
+                    Button("Cancel") {
+                        dismiss()
+                    }
                 }
-                .buttonStyle(.borderedProminent)
             }
             .padding(.top)
         }

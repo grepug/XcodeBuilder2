@@ -10,7 +10,6 @@ import Foundation
 public struct Project: Codable, Sendable, Hashable, Identifiable {
     public var bundleIdentifier: String
     public var name: String
-    public var path: String
     public var displayName: String
     public var gitRepoURL: URL
     public var xcodeprojName: String
@@ -20,10 +19,9 @@ public struct Project: Codable, Sendable, Hashable, Identifiable {
         bundleIdentifier
     }
 
-    public init(bundleIdentifier: String = "", path: String = "", name: String = "", displayName: String = "", gitRepoURL: URL = .init(string: "https://github.com")!, xcodeprojName: String = "", schemes: [Scheme] = []) {
+    public init(bundleIdentifier: String = "", name: String = "", displayName: String = "", gitRepoURL: URL = .init(string: "https://github.com")!, xcodeprojName: String = "", schemes: [Scheme] = []) {
         self.bundleIdentifier = bundleIdentifier
         self.name = name
-        self.path = path
         self.displayName = displayName
         self.gitRepoURL = gitRepoURL
         self.xcodeprojName = xcodeprojName

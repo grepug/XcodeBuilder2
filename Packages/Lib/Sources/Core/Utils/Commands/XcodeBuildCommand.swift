@@ -37,6 +37,7 @@ struct XcodeBuildCommand: Sendable {
     var version: Version
     var platform: Platform
     var exportOption: ExportOption?
+    let projectPath: String
     let archivePath: String
     let derivedDataPath: String
     let exportPath: String?
@@ -68,7 +69,7 @@ struct XcodeBuildCommand: Sendable {
     var string: String {
         """
         xcodebuild \
-        -project \(project.path) \
+        -project \(projectPath) \
         -skipMacroValidation \
         -skipPackagePluginValidation \
         \(derivedDataPath) \

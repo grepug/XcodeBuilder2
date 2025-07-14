@@ -10,10 +10,18 @@ import Core
 
 struct ProjectList: View {
     var projects: [Project]
+    var onDelete: ((Project) -> Void)!
     
     var body: some View {
         List(projects) { project in
             projectView(for: project)
+                .contextMenu {
+                    Button(role: .destructive, action: {
+                        onDelete(project)
+                    }) {
+                        Text("Delete")
+                    }
+                }
                 .padding(.vertical, 4)
         }
     }
