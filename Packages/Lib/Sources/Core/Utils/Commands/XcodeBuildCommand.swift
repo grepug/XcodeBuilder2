@@ -25,8 +25,8 @@ public struct Version: Sendable, Hashable, Codable, Comparable {
     }
 }
 
-struct XcodeBuildCommand: Sendable {
-    enum Kind: Codable {
+public struct XcodeBuildCommand: Sendable {
+    public enum Kind: Codable, Sendable {
         case archive, exportArchive, resolvePackageDependencies
 
         var command: String {
@@ -73,7 +73,7 @@ struct XcodeBuildCommand: Sendable {
         return "-scheme \"\(scheme.name)\""
     }
 
-    var string: String {
+    public var string: String {
         """
         xcodebuild \
         -project \(projectPath) \
@@ -87,5 +87,18 @@ struct XcodeBuildCommand: Sendable {
         \(exportPath.map { "-exportPath \($0)" } ?? "") \
         \(kind.command)
         """
+    }
+    
+    public init(kind: Kind, project: Project, scheme: Scheme, version: Version, platform: Platform, exportOption: ExportOption? = nil, projectPath: String, archivePath: String, derivedDataPath: String, exportPath: String?) {
+        self.kind = kind
+        self.project = project
+        self.scheme = scheme
+        self.version = version
+        self.platform = platform
+        self.exportOption = exportOption
+        self.projectPath = projectPath
+        self.archivePath = archivePath
+        self.derivedDataPath = derivedDataPath
+        self.exportPath = exportPath
     }
 }

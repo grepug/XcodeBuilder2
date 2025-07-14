@@ -12,7 +12,7 @@ import SharingGRDB
 struct ProjectDetailViewContainer: View {
     var id: String
     
-    @Fetch fileprivate var fetchedValue: Request.Result?
+    @Fetch var fetchedValue: ProjectDetailRequest.Result?
     
     var item: Project {
         fetchedValue?.project ?? Project(displayName: "Loading...")
@@ -33,7 +33,7 @@ struct ProjectDetailViewContainer: View {
             schemes: fetchedValue?.schemes ?? []
         )
         .task(id: id) {
-            try! await $fetchedValue.load(Request(id: id))
+            try! await $fetchedValue.load(ProjectDetailRequest(id: id))
         }
     }
 }
@@ -98,7 +98,7 @@ struct ProjectDetailView: View {
     }
 }
 
-fileprivate struct Request: SharingGRDB.FetchKeyRequest {
+struct ProjectDetailRequest: SharingGRDB.FetchKeyRequest {
     var id: String
     
     struct Result {
@@ -108,19 +108,24 @@ fileprivate struct Request: SharingGRDB.FetchKeyRequest {
     }
     
     func fetch(_ db: Database) throws -> Result? {
-        guard let project = (try ProjectModel.where { $0.bundle_identifier == id }
+        guard var project = (try ProjectModel.where { $0.bundle_identifier == id }
             .fetchOne(db)?
             .toProject()) else {
                 return nil
             }
         
-        let buildsAndModels = try BuildModel
+        let builds = try BuildModel
             .join(SchemeModel.where { $0.project_bundle_identifier == id }, on: { $0.0.scheme_id == $0.1.id })
             .where { a, b in b.project_bundle_identifier == id }
             .fetchAll(db)
+            .map { $0.0 }
         
-        let builds = buildsAndModels.map { $0.0 }
-        let schemes = buildsAndModels.map { $0.1.toScheme() }
+        let schemes = try SchemeModel
+            .where { $0.project_bundle_identifier == id }
+            .fetchAll(db)
+            .map { $0.toScheme() }
+        
+        project.schemes = schemes
         
         return .init(project: project, builds: builds, schemes: schemes)
     }

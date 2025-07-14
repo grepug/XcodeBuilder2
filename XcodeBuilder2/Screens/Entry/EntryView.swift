@@ -17,6 +17,7 @@ struct EntryView: View {
     
     @State var editingProjectItem: Project?
     @State private var selectedProjectId: String?
+    @State private var showingNewBuildSheet = false
     
     var body: some View {
         NavigationSplitView {
@@ -40,11 +41,18 @@ struct EntryView: View {
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
-                Button {
-                    
-                } label: {
-                    Text("New Build")
+                if selectedProjectId != nil {
+                    Button {
+                        showingNewBuildSheet = true
+                    } label: {
+                        Text("New Build")
+                    }
                 }
+            }
+        }
+        .sheet(isPresented: $showingNewBuildSheet) {
+            if let id = selectedProjectId {
+                BuildEditorContainer(projectId: id)
             }
         }
     }
