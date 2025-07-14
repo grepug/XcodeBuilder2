@@ -21,10 +21,10 @@ struct ProjectEditorView: View {
                 TextField("Bundle Identifier:", text: $project.bundleIdentifier)
                     .autocorrectionDisabled(true)
                 
-                TextField("Git Remote URL:", text: $project.gitRepoURL.string)
+                TextField("Xcode Project Name:", text: $project.xcodeprojName)
                     .autocorrectionDisabled(true)
                 
-                TextField("Xcode Project Name:", text: $project.xcodeprojName)
+                TextField("Git Remote URL:", text: $project.gitRepoURL.string)
                     .autocorrectionDisabled(true)
             } header: {
                 Text("Project Details")

@@ -20,13 +20,15 @@ struct ProjectList: View {
     
     func projectView(for project: Project) -> some View {
         NavigationLink(destination: EmptyView()) {
-            VStack(alignment: .leading) {
-                Text(project.displayName)
-                    .font(.headline)
-                Text(project.bundleIdentifier)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
+            ProjectListItemView(project: project)
         }
     }
+}
+
+#Preview {
+    ProjectList(projects: [
+        .init(displayName: "Context", gitRepoURL: URL(string: "https://github.com/grepug/ContextBackendModelsTest.git")!),
+        .init(displayName: "Life Sticker"),
+        .init(displayName: "Vis"),
+    ])
 }
