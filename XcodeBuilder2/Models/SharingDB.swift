@@ -34,15 +34,16 @@ struct SchemeModel {
     var project_bundle_identifier: String
     var name: String
     var platform_json_string: String // JSON encoded array of Platform
+    var order: Int
     
     func toScheme() -> Scheme {
         let platforms: [Platform] = try! JSONDecoder().decode([Platform].self, from: Data(platform_json_string.utf8))
-        return Scheme(id: id, name: name, platforms: platforms)
+        return Scheme(id: id, name: name, platforms: platforms, order: order)
     }
     
     static func fromScheme(_ scheme: Scheme, projectBundleIdentifier: String) -> SchemeModel {
         let platformJsonString = try! JSONEncoder().encode(scheme.platforms).map { String(UnicodeScalar($0)) }.joined()
-        return SchemeModel(id: scheme.id, project_bundle_identifier: projectBundleIdentifier, name: scheme.name, platform_json_string: platformJsonString)
+        return SchemeModel(id: scheme.id, project_bundle_identifier: projectBundleIdentifier, name: scheme.name, platform_json_string: platformJsonString, order: scheme.order)
     }
 }
 
@@ -104,6 +105,7 @@ extension DatabaseWriter where Self == DatabaseQueue {
                     "name" TEXT NOT NULL,
                     "platform_json_string" TEXT NOT NULL,
                     "project_bundle_identifier" TEXT NOT NULL,
+                    "order" INTEGER NOT NULL,
                     FOREIGN KEY("project_bundle_identifier") REFERENCES "projectModels"(bundle_identifier) ON DELETE CASCADE
                 )
                 """

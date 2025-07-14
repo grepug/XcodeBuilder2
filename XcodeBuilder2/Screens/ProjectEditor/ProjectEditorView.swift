@@ -39,8 +39,13 @@ struct ProjectEditorView: View {
             Section {
                 ForEach($project.schemes) { $item in
                     let index = project.schemes.firstIndex(where: { $0.id == item.id }) ?? 0
+                    
                     schemeView(for: $item, index: index) {
                         project.schemes.remove(at: index)
+                    } moveUp: {
+                        if index > 0 {
+                            project.schemes.move(fromOffsets: IndexSet(integer: index), toOffset: index - 1)
+                        }
                     }
                 }
                 .padding(.bottom)
@@ -73,7 +78,12 @@ struct ProjectEditorView: View {
         .padding()
     }
     
-    func schemeView(for scheme: Binding<Scheme>, index: Int, onDelete: @escaping () -> Void) -> some View {
+    func schemeView(
+        for scheme: Binding<Scheme>,
+        index: Int,
+        onDelete: @escaping () -> Void,
+        moveUp: @escaping () -> Void = {},
+    ) -> some View {
         HStack(spacing: 16) {
             TextField("Scheme \(index + 1):", text: scheme.name)
             
@@ -95,6 +105,16 @@ struct ProjectEditorView: View {
                     .foregroundStyle(.gray)
             }
             .buttonStyle(.plain)
+            
+            Button {
+                moveUp()
+            } label: {
+                Image(systemName: "arrow.up.circle.fill")
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.gray)
+            }
+            .buttonStyle(.plain)
+            .opacity(index == 0 ? 0 : 1)
         }
     }
 }

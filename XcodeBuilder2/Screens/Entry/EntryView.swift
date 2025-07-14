@@ -105,8 +105,10 @@ struct EntryView: View {
     
     func saveProject(_ project: Project) async throws {
         let projectModel = ProjectModel.fromProject(project)
-        let schemeModels = project.schemes.map {
-            SchemeModel.fromScheme($0, projectBundleIdentifier: project.bundleIdentifier)
+        let schemeModels = project.schemes.enumerated().map { index, item in
+            var item = item
+            item.order = index
+            return SchemeModel.fromScheme(item, projectBundleIdentifier: project.bundleIdentifier)
         }
         
         try await db.write { db in

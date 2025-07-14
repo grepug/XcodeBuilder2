@@ -124,6 +124,7 @@ struct ProjectDetailRequest: SharingGRDB.FetchKeyRequest {
             .where { $0.project_bundle_identifier == id }
             .fetchAll(db)
             .map { $0.toScheme() }
+            .sorted()
         
         project.schemes = schemes
         
