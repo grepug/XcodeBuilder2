@@ -84,13 +84,11 @@ struct BuildDetailView: View {
     }
     
     private var buildHeader: some View {
-        HStack {
-            Image(systemName: "hammer.fill")
-                .foregroundStyle(build.status.color)
-                .imageScale(.large)
-                .font(.title)
+        HStack(spacing: 16) {
+            // Progress circle
+            BuildProgressCircle(build: build, size: 60)
             
-            VStack(alignment: .leading) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("Build \(build.buildNumber)")
                     .font(.title2.bold())
                 
@@ -99,9 +97,17 @@ struct BuildDetailView: View {
                         .font(.subheadline)
                         .foregroundStyle(build.status.color)
                     
-                    Circle()
-                        .fill(build.status.color)
-                        .frame(width: 8, height: 8)
+                    if build.status == .running {
+                        Text("• \(Int(build.progress * 100))%")
+                            .font(.subheadline)
+                            .foregroundStyle(build.status.color)
+                    }
+                }
+                
+                if let scheme = scheme {
+                    Text(scheme.name)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             
@@ -371,6 +377,7 @@ struct LogEntryView: View {
     }
 }
 
+
 #Preview {
     BuildDetailView(
         build: .init(
@@ -397,7 +404,8 @@ struct LogEntryView: View {
 
 #Preview("Running Build") {
     let schemeId = UUID()
-    return BuildDetailView(
+    
+    BuildDetailView(
         build: .init(
             id: UUID(),
             schemeId: schemeId,
@@ -407,7 +415,8 @@ struct LogEntryView: View {
             startDate: Date().addingTimeInterval(-1800),
             endDate: nil,
             exportOptions: [.appStore, .releaseTesting],
-            status: .running
+            status: .running,
+            progress: 0.65
         ),
         logs: [
             BuildLog(id: UUID(), buildId: UUID(), content: "Starting build process...", level: .info),

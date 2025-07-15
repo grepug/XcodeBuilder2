@@ -99,7 +99,16 @@ extension DatabaseWriter where Self == DatabaseQueue {
             )
             .execute(db)
         }
-        
+
+        migrator.registerMigration("Add progress to build") { db in
+            try #sql(
+                """
+                ALTER TABLE "builds" ADD COLUMN "progress" REAL NOT NULL DEFAULT 0
+                """
+            )
+            .execute(db)
+        }
+
         try! migrator.migrate(databaseQueue)
         
         return databaseQueue

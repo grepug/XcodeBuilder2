@@ -72,6 +72,10 @@ class BuildManager {
                 
                 for try await item in stream {
                     print("progress: \(item.progress) - \(item.message)")
+                    
+                    await updateBuild(id: buildId) {
+                        $0.progress = item.progress
+                    }
                 }
                 
                 await updateBuild(id: buildId) {

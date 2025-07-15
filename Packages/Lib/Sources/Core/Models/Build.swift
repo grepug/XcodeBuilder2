@@ -54,6 +54,8 @@ public struct BuildModel: Identifiable, Sendable {
 
     public var status: BuildStatus = .queued
 
+    public var progress: Double = 0
+
     @Column("export_options", as: [ExportOption].JSONRepresentation.self)
     public var exportOptions: [ExportOption]
 
@@ -77,7 +79,8 @@ public struct BuildModel: Identifiable, Sendable {
         startDate: Date? = nil, 
         endDate: Date? = nil, 
         exportOptions: [ExportOption] = [], 
-        status: BuildStatus = .queued
+        status: BuildStatus = .queued,
+        progress: Double = 0
     ) {
         self.id = id
         self.schemeId = schemeId
@@ -88,5 +91,6 @@ public struct BuildModel: Identifiable, Sendable {
         self.endDate = endDate
         self.status = status
         self.exportOptions = exportOptions
+        self.progress = progress
     }
 }
