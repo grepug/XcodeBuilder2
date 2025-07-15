@@ -12,18 +12,12 @@ import SharingGRDB
 struct ProjectDetailViewContainer: View {
     var id: String
     
-    @State @Fetch var fetchedValue: ProjectDetailRequest.Result?
+    @State @FetchOne var project: Project?
+    @State @FetchAll var buildIds: [UUID] = []
+    @State @FetchAll var schemes: [Scheme] = []
     
     @Environment(BuildManager.self) private var buildManager
     @Environment(EntryViewModel.self) private var entryVM
-    
-    var item: Project {
-        fetchedValue?.project ?? Project(displayName: "Loading...")
-    }
-    
-    var builds: [BuildModel] {
-        fetchedValue?.builds ?? []
-    }
     
     init(id: String) {
         self.id = id
@@ -33,50 +27,40 @@ struct ProjectDetailViewContainer: View {
         @Bindable var entryVM = entryVM
         
         ProjectDetailView(
-            project: item,
-            builds: builds,
+            project: project ?? .init(),
+            buildIds: buildIds,
             buildSelection: $entryVM.buildSelection,
-            schemes: fetchedValue?.schemes ?? []
-        ) { build in
-            buildManager.cancelBuild(build)
-        } onDelete: { build in
-            Task {
-                await buildManager.deleteBuild(build)
-            }
-        }
+            schemes: schemes,
+        )
         .task(id: id) {
-            try! await $fetchedValue.wrappedValue.load(ProjectDetailRequest(id: id))
+            try! await $project.wrappedValue.load(Project.where { $0.bundleIdentifier == id }, animation: .default)
+            try! await $schemes.wrappedValue.load(Scheme.where { $0.projectBundleIdentifier == id }, animation: .default)
+        }
+        .task(id: schemes) {
+            try! await $buildIds.wrappedValue.load(
+                BuildModel
+                    .where { $0.schemeId.in(schemes.map(\.id)) }
+                    .select(\.id),
+                animation: .default,
+            )
         }
     }
 }
 
 struct ProjectDetailView: View {
     var project: Project
-    var builds: [BuildModel]
+    var buildIds: [UUID]
     @Binding var buildSelection: UUID?
     var schemes: [Scheme] = []
-    
-    var onCancel: ((BuildModel) -> Void)?
-    var onDelete: ((BuildModel) -> Void)?
     
     @Dependency(\.defaultDatabase) var db
     
     var body: some View {
-        List(builds, selection: $buildSelection) { build in
-            BuildItemView(build: build, schemes: schemes)
-                .contextMenu {
-                    if build.status == .running {
-                        Button("Cancel", action: {
-                            onCancel?(build)
-                        })
-                    }
-                    
-                    Button("Delete", role: .destructive) {
-                        onDelete?(build)
-                    }
-                }
-                .tag(build.id)
+        List(buildIds, id: \.self, selection: $buildSelection) { id in
+            BuildItemViewContainer(id: id)
+                .tag(id)
         }
+        .animation(.default, value: buildIds.count)
     }
 }
 

@@ -120,22 +120,25 @@ class BuildManager {
         }
     }
     
-    func deleteBuild(_ build: BuildModel) async {
-        try! await db.write { db in
-            try BuildModel
-                .delete(build)
-                .execute(db)
+    func deleteBuild(id: UUID) {
+        Task {
+            try! await db.write { db in
+                try BuildModel
+                    .where { $0.id == id }
+                    .delete()
+                    .execute(db)
+            }
         }
     }
     
-    func cancelBuild(_ build: BuildModel) {
-        guard let task = tasks[build.id] else {
+    func cancelBuild(id: UUID) {
+        guard let task = tasks[id] else {
             return
         }
         
         task.cancel()
         
-        updateBuild(id: build.id) {
+        updateBuild(id: id) {
             $0.status = .cancelled
             $0.endDate = .now
         }

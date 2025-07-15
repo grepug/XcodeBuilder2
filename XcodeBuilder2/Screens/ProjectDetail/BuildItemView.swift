@@ -7,10 +7,45 @@
 
 import SwiftUI
 import Core
+import SharingGRDB
+
+struct BuildItemViewContainer: View {
+    var id: UUID
+    
+    @State @FetchOne var build: BuildModel?
+    @State @FetchOne var scheme: Scheme?
+    
+    @Environment(BuildManager.self) private var buildManager
+    
+    var body: some View {
+        BuildItemView(
+            build: build ?? .init(),
+            scheme: scheme ?? .init(),
+        )
+        .task(id: id) {
+            try! await $build.wrappedValue.load(BuildModel.where { $0.id == id })
+        }
+        .task(id: build?.schemeId) {
+            guard let schemeId = build?.schemeId else { return }
+            try! await $scheme.wrappedValue.load(Scheme.where { $0.id == schemeId })
+        }
+        .contextMenu {
+            if build?.status == .running {
+                Button("Cancel", action: {
+                    buildManager.cancelBuild(id: id)
+                })
+            }
+            
+            Button("Delete", role: .destructive) {
+                buildManager.deleteBuild(id: id)
+            }
+        }
+    }
+}
 
 struct BuildItemView: View {
     var build: BuildModel
-    var schemes: [Scheme]
+    var scheme: Scheme
     
     var body: some View {
         HStack(spacing: 12) {
@@ -18,7 +53,7 @@ struct BuildItemView: View {
             BuildProgressCircle(build: build, size: 40)
             
             VStack(alignment: .leading, spacing: 4) {
-                Text(schemeName(for: build))
+                Text(scheme.name)
                     .font(.headline)
                 
                 HStack {
@@ -145,14 +180,6 @@ struct BuildItemView: View {
             return "now"
         }
     }
-    
-    func schemeName(for build: BuildModel) -> String {
-        if let scheme = schemes.first(where: { $0.id == build.schemeId }) {
-            return scheme.name
-        }
-        
-        return "Unknown Scheme"
-    }
 }
 
 #Preview {
@@ -171,7 +198,7 @@ struct BuildItemView: View {
                 exportOptions: [.appStore],
                 status: .completed
             ),
-            schemes: [scheme]
+            scheme: scheme
         )
         
         BuildItemView(
@@ -187,7 +214,7 @@ struct BuildItemView: View {
                 status: .running,
                 progress: 0.45
             ),
-            schemes: [scheme]
+            scheme: scheme
         )
         
         BuildItemView(
@@ -202,7 +229,7 @@ struct BuildItemView: View {
                 exportOptions: [.appStore],
                 status: .queued
             ),
-            schemes: [scheme]
+            scheme: scheme
         )
         
         BuildItemView(
@@ -217,7 +244,7 @@ struct BuildItemView: View {
                 exportOptions: [.appStore],
                 status: .failed
             ),
-            schemes: [scheme]
+            scheme: scheme
         )
     }
     .padding()
