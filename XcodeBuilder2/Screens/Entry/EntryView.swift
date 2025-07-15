@@ -45,7 +45,9 @@ struct EntryView: View {
         } content: {
             content
         } detail: {
-            
+            if let id = vm.buildSelection {
+                BuildDetailViewContainer(buildId: id)
+            }
         }
         .environment(buildManager)
         .environment(vm)
