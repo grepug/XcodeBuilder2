@@ -10,6 +10,12 @@ import Core
 import Sharing
 import SharingGRDB
 
+@Observable
+class EntryViewModel {
+    var projectSelection: String?
+    var buildSelection: UUID?
+}
+
 struct EntryView: View {
     @Fetch(AllProjectRequest()) var data = .init()
     
@@ -29,9 +35,9 @@ struct EntryView: View {
     }
     
     @State var editingProjectItem: EditingProjectItem?
-    @State private var selectedProjectId: String?
     @State private var showingNewBuildSheet = false
     @State var buildManager = BuildManager()
+    @State var vm = EntryViewModel()
     
     var body: some View {
         NavigationSplitView {
@@ -42,17 +48,18 @@ struct EntryView: View {
             
         }
         .environment(buildManager)
+        .environment(vm)
         .onChange(of: items.map(\.id)) { oldValue, newValue in
-            if let id = selectedProjectId, !newValue.contains(id) {
-                selectedProjectId = nil
+            if let id = vm.projectSelection, !newValue.contains(id) {
+                vm.projectSelection = nil
             }
         }
     }
 
     var content: some View {
         Group {
-            if let selectedProjectId {
-                ProjectDetailViewContainer(id: selectedProjectId)
+            if let id = vm.projectSelection {
+                ProjectDetailViewContainer(id: id)
             } else {
                 Text("Select a project to view details")
                     .foregroundColor(.secondary)
@@ -61,7 +68,7 @@ struct EntryView: View {
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
-                if selectedProjectId != nil {
+                if vm.projectSelection != nil {
                     Button {
                         showingNewBuildSheet = true
                     } label: {
@@ -71,7 +78,7 @@ struct EntryView: View {
             }
         }
         .sheet(isPresented: $showingNewBuildSheet) {
-            if let id = selectedProjectId {
+            if let id = vm.projectSelection {
                 BuildEditorContainer(projectId: id) {
                     showingNewBuildSheet = false
                 }
@@ -82,7 +89,7 @@ struct EntryView: View {
     var projectList: some View {
         ProjectList(
             projects: items,
-            selection: $selectedProjectId,
+            selection: $vm.projectSelection,
         ) { item in
             Task {
                 try! await delete(id: item.bundleIdentifier)

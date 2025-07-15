@@ -13,6 +13,7 @@ struct ProjectDetailViewContainer: View {
     var id: String
     
     @Fetch var fetchedValue: ProjectDetailRequest.Result?
+    @Environment(BuildManager.self) private var buildManager
     
     var item: Project {
         fetchedValue?.project ?? Project(displayName: "Loading...")
@@ -31,7 +32,11 @@ struct ProjectDetailViewContainer: View {
             project: item,
             builds: builds,
             schemes: fetchedValue?.schemes ?? []
-        )
+        ) { build in
+            Task {
+                await buildManager.deleteBuild(build)
+            }
+        }
         .task(id: id) {
             try! await $fetchedValue.load(ProjectDetailRequest(id: id))
         }
@@ -43,57 +48,26 @@ struct ProjectDetailView: View {
     var builds: [BuildModel]
     var schemes: [Scheme] = []
     
+    var onDelete: ((BuildModel) -> Void)?
+    
+    @Dependency(\.defaultDatabase) var db
+    @Environment(EntryViewModel.self) private var entryVM
+    
     var body: some View {
-        List {
+        @Bindable var entryVM = entryVM
+        
+        List(selection: $entryVM.buildSelection) {
             ForEach(builds) { build in
-                buildItemView(for: build)
+                BuildItemView(build: build, schemes: schemes)
+                    .contextMenu {
+                        Button("Delete", role: .destructive) {
+                            onDelete?(build)
+                        }
+                    }
+                    .tag(build.id)
             }
         }
     }
-    
-    func buildItemView(for build: BuildModel) -> some View {
-        HStack {
-            Image(systemName: "hammer")
-                .foregroundStyle(.secondary)
-                .imageScale(.large)
-            
-            Text(schemeName(for: build))
-                .font(.headline)
-            
-            Spacer()
-            
-            status(for: build)
-                .foregroundStyle(.secondary)
-        }
-    }
-    
-    var formatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        formatter.timeStyle = .short
-        return formatter
-    }
-    
-    @ViewBuilder
-    func status(for build: BuildModel) -> some View {
-        if let start = build.startDate {
-            Text("Started at \(formatter.string(from: start))")
-        }
-        
-        if let end = build.endDate {
-            Text("Ended at \(formatter.string(from: end))")
-            
-            let duration = end.timeIntervalSince(build.startDate!)
-            
-            Text("Duration: \(Int(duration)) seconds")
-        }
-    }
-    
-    func schemeName(for build: BuildModel) -> String {
-        if let scheme = schemes.first(where: { $0.id == build.schemeId }) {
-            return scheme.name
-        }
-        
-        return "Unknown Scheme"
-    }
 }
+
+

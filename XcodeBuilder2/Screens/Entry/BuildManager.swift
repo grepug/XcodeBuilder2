@@ -63,11 +63,9 @@ class BuildManager {
                     })
                 )
                 
-                try! await db.write { db in
-                    try BuildModel
-                        .where { $0.id == buildId }
-                        .update { $0.startDate = .now }
-                        .execute(db)
+                await updateBuild(id: buildId) {
+                    $0.startDate = .now
+                    $0.status = .running
                 }
                 
                 let stream = await job.startBuild()
@@ -76,17 +74,37 @@ class BuildManager {
                     print("progress: \(item.progress) - \(item.message)")
                 }
                 
-                try! await db.write { db in
-                    try BuildModel
-                        .where { $0.id == buildId }
-                        .update { $0.endDate = .now }
-                        .execute(db)
+                await updateBuild(id: buildId) {
+                    $0.endDate = .now
+                    $0.status = .completed
                 }
             } catch {
                 print("Error running job: \(error)")
+                
+                await updateBuild(id: buildId) {
+                    $0.endDate = .now
+                    $0.status = .failed
+                }
             }
         }
         
         tasks[buildId] = task
+    }
+    
+    func updateBuild(id: UUID, update: @escaping (inout Updates<BuildModel>) -> Void) async {
+        try! await db.write { db in
+            try BuildModel
+                .where { $0.id == id }
+                .update { update(&$0) }
+                .execute(db)
+        }
+    }
+    
+    func deleteBuild(_ build: BuildModel) async {
+        try! await db.write { db in
+            try BuildModel
+                .delete(build)
+                .execute(db)
+        }
     }
 }

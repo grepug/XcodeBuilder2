@@ -1,11 +1,30 @@
 import Foundation
 import SharingGRDB
+import SwiftUI
 
 public enum BuildStatus: String, Codable, Sendable, Hashable, QueryBindable {
     case queued
     case running
     case completed
     case failed
+    
+    public var title: String {
+        switch self {
+        case .queued: "Queued"
+        case .running: "Running"
+        case .completed: "Completed"
+        case .failed: "Failed"
+        }
+    }
+    
+    public var color: Color {
+        switch self {
+        case .queued: .blue
+        case .running: .orange
+        case .completed: .green
+        case .failed: .red
+        }
+    }
 }
 
 @Table("builds")
