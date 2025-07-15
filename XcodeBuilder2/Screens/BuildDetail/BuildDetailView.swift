@@ -14,6 +14,7 @@ struct BuildDetailViewContainer: View {
     
     @FetchOne var fetchedBuild: BuildModel?
     @FetchAll var logs: [BuildLog]
+    @FetchOne var scheme: Scheme?
     
     var build: BuildModel {
         fetchedBuild ?? .init(id: buildId)
@@ -23,10 +24,12 @@ struct BuildDetailViewContainer: View {
         BuildDetailView(
             build: build,
             logs: logs,
+            scheme: scheme,
         )
         .task(id: buildId) {
             try! await $fetchedBuild.load(BuildModel.where { $0.id == buildId })
             try! await $logs.load(BuildLog.where { $0.buildId == buildId }.order(by: \.createdAt))
+            try! await $scheme.load(Scheme.where { $0.id == build.schemeId })
         }
     }
 }
@@ -34,6 +37,7 @@ struct BuildDetailViewContainer: View {
 struct BuildDetailView: View {
     var build: BuildModel
     var logs: [BuildLog]
+    var scheme: Scheme?
     
     var body: some View {
         ScrollView {
@@ -43,13 +47,16 @@ struct BuildDetailView: View {
                 
                 Divider()
                 
-                // Build Information
-                buildInfo
+                // Show logs first when running
+                if build.status == .running {
+                    // Logs Section
+                    logsSection
+                    
+                    Divider()
+                }
                 
-                Divider()
-                
-                // Version Information
-                versionInfo
+                // Build & Version Information (combined and compact)
+                buildAndVersionInfo
                 
                 Divider()
                 
@@ -60,6 +67,14 @@ struct BuildDetailView: View {
                 
                 // Timestamps
                 timestampsSection
+                
+                // Show logs last when not running
+                if build.status != .running {
+                    Divider()
+                    
+                    // Logs Section
+                    logsSection
+                }
                 
                 Spacer()
             }
@@ -94,25 +109,27 @@ struct BuildDetailView: View {
         }
     }
     
-    private var buildInfo: some View {
+    private var buildAndVersionInfo: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Build Information")
+            Text("Build & Version Information")
                 .font(.headline)
             
-            InfoRow(label: "Build ID", value: build.id.uuidString)
-            InfoRow(label: "Scheme ID", value: build.schemeId.uuidString)
-            InfoRow(label: "Status", value: build.status.title)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .leading), count: 2), spacing: 12) {
+                CompactInfoRow(label: "Build ID", value: String(build.id.uuidString.prefix(8)))
+                CompactInfoRow(label: "Scheme", value: schemeName)
+                CompactInfoRow(label: "Status", value: build.status.title)
+                CompactInfoRow(label: "Version", value: build.versionString)
+                CompactInfoRow(label: "Build Number", value: String(build.buildNumber))
+                CompactInfoRow(label: "Full Version", value: "\(build.versionString) (\(build.buildNumber))")
+            }
         }
     }
     
-    private var versionInfo: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Version Information")
-                .font(.headline)
-            
-            InfoRow(label: "Version", value: build.versionString)
-            InfoRow(label: "Build Number", value: String(build.buildNumber))
-            InfoRow(label: "Full Version", value: "\(build.versionString) (\(build.buildNumber))")
+    private var schemeName: String {
+        if let scheme = scheme {
+            scheme.name
+        } else {
+            "Unknown Scheme"
         }
     }
     
@@ -174,6 +191,57 @@ struct BuildDetailView: View {
         }
     }
     
+    private var logsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Build Logs")
+                    .font(.headline)
+                
+                Spacer()
+                
+                Text("\(logs.count) logs")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            
+            if build.status == .running {
+                // Expanded view for running builds
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 8) {
+                        ForEach(logs) { log in
+                            LogEntryView(log: log)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+                .frame(maxHeight: 400)
+                .cornerRadius(8)
+            } else {
+                // Collapsed view for non-running builds
+                DisclosureGroup("View Logs") {
+                    if logs.isEmpty {
+                        Text("No logs available")
+                            .foregroundStyle(.secondary)
+                            .italic()
+                            .padding()
+                    } else {
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 8) {
+                                ForEach(logs) { log in
+                                    LogEntryView(log: log)
+                                }
+                            }
+                            .padding(.vertical, 8)
+                        }
+                        .frame(maxHeight: 300)
+                    }
+                }
+                .background(Color(.lightGray))
+                .cornerRadius(8)
+            }
+        }
+    }
+    
     private var formatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -189,6 +257,23 @@ struct BuildDetailView: View {
             return "\(minutes)m \(seconds)s"
         } else {
             return "\(seconds)s"
+        }
+    }
+}
+
+struct CompactInfoRow: View {
+    let label: String
+    let value: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            
+            Text(value)
+                .font(.subheadline)
+                .textSelection(.enabled)
         }
     }
 }
@@ -213,6 +298,79 @@ struct InfoRow: View {
     }
 }
 
+struct LogEntryView: View {
+    let log: BuildLog
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            // Level indicator
+            Image(systemName: levelIcon)
+                .foregroundStyle(levelColor)
+                .font(.caption)
+                .frame(width: 16)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(log.level.rawValue.uppercased())
+                        .font(.caption2.bold())
+                        .foregroundStyle(levelColor)
+                    
+                    Spacer()
+                    
+                    Text(timeFormatter.string(from: log.createdAt))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Text(log.content)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(.primary)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(levelBackgroundColor)
+        )
+    }
+    
+    private var levelIcon: String {
+        switch log.level {
+        case .info: return "info.circle.fill"
+        case .warning: return "exclamationmark.triangle.fill"
+        case .error: return "xmark.circle.fill"
+        case .debug: return "bug.fill"
+        }
+    }
+    
+    private var levelColor: Color {
+        switch log.level {
+        case .info: return .blue
+        case .warning: return .orange
+        case .error: return .red
+        case .debug: return .purple
+        }
+    }
+    
+    private var levelBackgroundColor: Color {
+        switch log.level {
+        case .info: return .blue.opacity(0.1)
+        case .warning: return .orange.opacity(0.1)
+        case .error: return .red.opacity(0.1)
+        case .debug: return .purple.opacity(0.1)
+        }
+    }
+    
+    private var timeFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .medium
+        return formatter
+    }
+}
+
 #Preview {
     BuildDetailView(
         build: .init(
@@ -227,7 +385,36 @@ struct InfoRow: View {
             status: .completed
         ),
         logs: [
-            
-        ]
+            BuildLog(id: UUID(), buildId: UUID(), content: "Starting build process...", level: .info),
+            BuildLog(id: UUID(), buildId: UUID(), content: "Cloning repository...", level: .info),
+            BuildLog(id: UUID(), buildId: UUID(), content: "Package dependencies resolved", level: .info),
+            BuildLog(id: UUID(), buildId: UUID(), content: "Build warning: Deprecated API usage", level: .warning),
+            BuildLog(id: UUID(), buildId: UUID(), content: "Archive created successfully", level: .info),
+        ],
+        scheme: Scheme(id: UUID(), name: "Release", platforms: [.iOS])
+    )
+}
+
+#Preview("Running Build") {
+    let schemeId = UUID()
+    return BuildDetailView(
+        build: .init(
+            id: UUID(),
+            schemeId: schemeId,
+            versionString: "1.2.0",
+            buildNumber: 42,
+            createdAt: Date().addingTimeInterval(-3600),
+            startDate: Date().addingTimeInterval(-1800),
+            endDate: nil,
+            exportOptions: [.appStore, .releaseTesting],
+            status: .running
+        ),
+        logs: [
+            BuildLog(id: UUID(), buildId: UUID(), content: "Starting build process...", level: .info),
+            BuildLog(id: UUID(), buildId: UUID(), content: "Cloning repository...", level: .info),
+            BuildLog(id: UUID(), buildId: UUID(), content: "Package dependencies resolved", level: .info),
+            BuildLog(id: UUID(), buildId: UUID(), content: "Currently archiving project...", level: .info),
+        ],
+        scheme: Scheme(id: schemeId, name: "Beta", platforms: [.iOS, .macOS]),
     )
 }
