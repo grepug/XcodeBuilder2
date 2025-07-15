@@ -109,6 +109,15 @@ extension DatabaseWriter where Self == DatabaseQueue {
             .execute(db)
         }
 
+        migrator.registerMigration("Add category to build logs") { db in
+            try #sql(
+                """
+                ALTER TABLE "buildLogs" ADD COLUMN "category" TEXT
+                """
+            )
+            .execute(db)
+        }
+
         try! migrator.migrate(databaseQueue)
         
         return databaseQueue

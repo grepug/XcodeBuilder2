@@ -38,9 +38,7 @@ struct ProjectDetailViewContainer: View {
             buildSelection: $entryVM.buildSelection,
             schemes: fetchedValue?.schemes ?? []
         ) { build in
-            Task {
-                await buildManager.cancelBuild(build)
-            }
+            buildManager.cancelBuild(build)
         } onDelete: { build in
             Task {
                 await buildManager.deleteBuild(build)

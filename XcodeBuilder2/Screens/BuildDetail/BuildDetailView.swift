@@ -226,7 +226,7 @@ struct BuildDetailView: View {
                     .italic()
                     .padding()
             } else {
-                LazyVStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 8) {
                     ForEach(filteredLogs) { log in
                         LogEntryView(log: log)
                     }
@@ -374,7 +374,7 @@ struct LogEntryView: View {
     let log: BuildLog
     
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        LazyHStack(alignment: .top, spacing: 8) {
             // Level indicator
             Image(systemName: levelIcon)
                 .foregroundStyle(levelColor)
