@@ -7,8 +7,15 @@
 
 import Foundation
 
-public enum ShellError2: Error {
+public enum ShellError2: LocalizedError {
     case error(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .error(let message):
+            return "Shell command failed with error: \(message)"
+        }
+    }
 }
 
 private actor CommandRunner {

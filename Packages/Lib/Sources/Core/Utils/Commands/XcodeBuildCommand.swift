@@ -57,11 +57,11 @@ public struct XcodeBuildCommand: Sendable {
     }
 
     var exportOptionsPlist: String {
-        guard let path = exportOption?.plistURL.path() else {
+        guard let path = exportOption?.plistURL.path(percentEncoded: false) else {
             return ""
         }
 
-        return "-exportOptionsPlist \(path)"
+        return "-exportOptionsPlist \"\(path)\""
     }
 
     var schemeString: String {
@@ -71,6 +71,14 @@ public struct XcodeBuildCommand: Sendable {
 
         return "-scheme \"\(scheme.name)\""
     }
+    
+    var derivedDataPathString: String {
+        guard kind != .exportArchive else {
+            return ""
+        }
+        
+        return "-derivedDataPath \(derivedDataURL.path())"
+    }
 
     public var string: String {
         """
@@ -78,7 +86,7 @@ public struct XcodeBuildCommand: Sendable {
         -project \(projectURL.path()) \
         -skipMacroValidation \
         -skipPackagePluginValidation \
-        -derivedDataPath \(derivedDataURL.path()) \
+        \(derivedDataPathString) \
         -archivePath \(archiveURL.path()) \
         \(schemeString) \
         \(sdkString) \

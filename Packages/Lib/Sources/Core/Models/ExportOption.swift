@@ -22,7 +22,10 @@ public enum ExportOption: String, Codable, Sendable, CaseIterable, Identifiable,
     }
 
     public var plistURL: URL {
-        let url = FileManager.default.temporaryDirectory.appending(component: "exportOptions_\(rawValue).plist")
+        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+            .first!.appendingPathComponent("XcodeBuilder2")
+            .appending(component: "exportOptions_\(rawValue).plist")
+        
         let data = plistContent.data(using: .utf8)!
         try! data.write(to: url)
 

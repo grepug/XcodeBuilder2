@@ -333,6 +333,7 @@ private extension XcodeBuildJob {
         """, .export, at: .info)
         
         assert(Set(exportOptions).count == exportOptions.count, "Duplicate export options found: \(exportOptions)")
+        assert(exportOptions.isEmpty == false, "No export options provided for platform \(platform.rawValue)")
 
         let exportToAppStoreCommand = XcodeBuildCommand(
             kind: .exportArchive,
@@ -417,10 +418,9 @@ private extension XcodeBuildJob {
             try FileManager.default.removeItem(atPath: derivedDataURL.path())
             log("✅ Derived data directory removed successfully", .cleanup, at: .info)
             
-            // Uncomment to also remove project directory
-            // log("🗑️  Removing project directory...", at: .info)
-            // try FileManager.default.removeItem(atPath: projectURL.path())
-            // log("✅ Project directory removed successfully", at: .info)
+            log("🗑️  Removing project directory...", .cleanup, at: .info)
+            try FileManager.default.removeItem(atPath: projectURL.path())
+            log("✅ Project directory removed successfully", .cleanup, at: .info)
 
             log("🧹 CLEANUP STAGE: Completed successfully", .cleanup, at: .info)
         } catch {
