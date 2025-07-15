@@ -9,61 +9,9 @@ import SwiftUI
 import Core
 import SharingGRDB
 
-struct BuildEditorContainer: View {
-    var projectId: String
-    
-    @State private var buildModel = BuildModel()
-    @State private var versions: [Version] = []
-    @State private var versionSelection: Version?
-    
-    @Fetch var fetchedValue: ProjectDetailRequest.Result?
-    
-    @Environment(BuildManager.self) private var buildManager
-    
-    var project: Project {
-        fetchedValue?.project ?? Project(displayName: "Loading...")
-    }
-    
-    var body: some View {
-        BuildEditor(
-            project: project,
-            build: $buildModel,
-            versions: versions,
-            versionSelection: $versionSelection,
-        ) {
-            guard let version = versionSelection else {
-                return
-            }
-            
-            guard let schemeName = project.schemes.first(where: { $0.id == buildModel.scheme_id })?.name else {
-                return
-            }
-            
-            Task {
-                await buildManager.createJob(
-                    payload: .init(
-                        project: project,
-                        schemeName: schemeName,
-                        version: version,
-                        exportOptions: buildModel.exportOptions,
-                    ),
-                    buildModel: buildModel,
-                )
-            }
-        }
-        .task(id: project) {
-            if !project.bundleIdentifier.isEmpty {
-                versions = try! await GitCommand.fetchVersions(remoteURL: project.gitRepoURL)
-            }
-        }
-        .task(id: projectId) {
-            try! await $fetchedValue.load(ProjectDetailRequest(id: projectId))
-        }
-    }
-}
-
 struct BuildEditor: View {
     var project: Project
+    var schemes: [Scheme]
     @Binding var build: BuildModel
     var versions: [Version]
     @Binding var versionSelection: Version?
@@ -73,7 +21,7 @@ struct BuildEditor: View {
     var action: (() -> Void)?
     
     var platforms: [Platform]? {
-        project.schemes.first(where: { $0.id == build.scheme_id })?.platforms
+        schemes.first(where: { $0.id == build.schemeId })?.platforms
     }
     
     var platformString: String {
@@ -89,7 +37,7 @@ struct BuildEditor: View {
     }
     
     var xcodeBuildCommandString: String? {
-        guard let scheme = project.schemes.first(where: { $0.id == build.scheme_id }) else {
+        guard let scheme = schemes.first(where: { $0.id == build.schemeId }) else {
             return nil
         }
         
@@ -131,16 +79,16 @@ struct BuildEditor: View {
                     versionSelection = newValue.first
                 }
                 
-                Picker("Scheme:", selection: $build.scheme_id) {
-                    ForEach(project.schemes) { scheme in
+                Picker("Scheme:", selection: $build.schemeId) {
+                    ForEach(schemes) { scheme in
                         Text(scheme.name)
                             .tag(scheme.id)
                     }
                 }
                 .pickerStyle(.radioGroup)
-                .onChange(of: project.schemes, initial: true) { oldValue, newValue in
+                .onChange(of: schemes, initial: true) { oldValue, newValue in
                     if let firstScheme = newValue.first {
-                        build.scheme_id = firstScheme.id
+                        build.schemeId = firstScheme.id
                     }
                 }
                 
@@ -193,17 +141,20 @@ struct BuildEditor: View {
 #Preview {
     @Previewable @State var project = Project(
         displayName: "Example Project",
-        schemes: [
-            .init(name: "Beta", platforms: [.iOS, .macOS]),
-            .init(name: "Release", platforms: [.iOS]),
-        ]
     )
+    
+    @Previewable @State var schemes: [Scheme] = [
+        .init(name: "Beta", platforms: [.iOS, .macOS]),
+        .init(name: "Release", platforms: [.iOS]),
+    ]
+    
     @Previewable @State var build = BuildModel()
     
     @Previewable @State var versionSelection: Version?
     
     BuildEditor(
         project: project,
+        schemes: schemes,
         build: $build,
         versions: [
             .init(version: "1.0.0", buildNumber: 0),

@@ -10,14 +10,25 @@ import Core
 import Sharing
 import SharingGRDB
 
-
-
 struct EntryView: View {
-    @FetchAll var items: [ProjectModel]
+    @Fetch(AllProjectRequest()) var data = .init()
+    
+    var items: [Project] {
+        data.projects
+    }
     
     @Dependency(\.defaultDatabase) var db
     
-    @State var editingProjectItem: Project?
+    struct EditingProjectItem: Identifiable {
+        var project = Project()
+        var schemes: [Scheme] = []
+        
+        var id: String {
+            project.id
+        }
+    }
+    
+    @State var editingProjectItem: EditingProjectItem?
     @State private var selectedProjectId: String?
     @State private var showingNewBuildSheet = false
     @State var buildManager = BuildManager()
@@ -61,14 +72,16 @@ struct EntryView: View {
         }
         .sheet(isPresented: $showingNewBuildSheet) {
             if let id = selectedProjectId {
-                BuildEditorContainer(projectId: id)
+                BuildEditorContainer(projectId: id) {
+                    showingNewBuildSheet = false
+                }
             }
         }
     }
     
     var projectList: some View {
         ProjectList(
-            projects: items.map { $0.toProject() },
+            projects: items,
             selection: $selectedProjectId,
         ) { item in
             Task {
@@ -84,17 +97,21 @@ struct EntryView: View {
                 }
             }
         }
-        .sheet(item: $editingProjectItem) { project in
+        .sheet(item: $editingProjectItem) { item in
             ProjectEditorView(project: .init {
-                project
+                item.project
             } set: { project in
-                editingProjectItem = project
-            }, dismiss: { editingProjectItem = nil }) {
-                if let project = editingProjectItem {
+                editingProjectItem!.project = project
+            }, schemes: .init(get: {
+                item.schemes
+            }, set: { schemes in
+                editingProjectItem!.schemes = schemes
+            }), dismiss: { editingProjectItem = nil }) {
+                if let item = editingProjectItem {
                     editingProjectItem = nil
                     
                     Task {
-                        try! await saveProject(project)
+                        try! await saveProject(item.project, schemes: item.schemes)
                     }
                 }
             }
@@ -105,24 +122,23 @@ struct EntryView: View {
     
     func delete(id: String) async throws {
         try await db.write { db in
-            try ProjectModel
-                .where { $0.bundle_identifier == id }
+            try Project
+                .where { $0.bundleIdentifier == id }
                 .delete()
                 .execute(db)
         }
     }
     
-    func saveProject(_ project: Project) async throws {
-        let projectModel = ProjectModel.fromProject(project)
-        let schemeModels = project.schemes.enumerated().map { index, item in
-            var item = item
-            item.order = index
-            return SchemeModel.fromScheme(item, projectBundleIdentifier: project.bundleIdentifier)
-        }
-        
+    func saveProject(_ project: Project, schemes: [Scheme]) async throws {
         try await db.write { db in
-            try ProjectModel.insert { projectModel }.execute(db)
-            try SchemeModel.insert { schemeModels }.execute(db)
+            let schemes = schemes.map {
+                var scheme = $0
+                scheme.projectBundleIdentifier = project.bundleIdentifier
+                return scheme
+            }
+            
+            try Project.insert { project }.execute(db)
+            try Scheme.insert { schemes }.execute(db)
         }
     }
 }

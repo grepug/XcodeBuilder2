@@ -10,6 +10,8 @@ import Core
 
 struct ProjectEditorView: View {
     @Binding var project: Project
+    @Binding var schemes: [Scheme]
+    
     var dismiss: (() -> Void)!
     var save: (() -> Void)!
     
@@ -37,22 +39,22 @@ struct ProjectEditorView: View {
                 .padding(.vertical)
             
             Section {
-                ForEach($project.schemes) { $item in
-                    let index = project.schemes.firstIndex(where: { $0.id == item.id }) ?? 0
+                ForEach($schemes) { $item in
+                    let index = schemes.firstIndex(where: { $0.id == item.id }) ?? 0
                     
                     schemeView(for: $item, index: index) {
-                        project.schemes.remove(at: index)
+                        schemes.remove(at: index)
                     } moveUp: {
                         if index > 0 {
-                            project.schemes.move(fromOffsets: IndexSet(integer: index), toOffset: index - 1)
+                            schemes.move(fromOffsets: IndexSet(integer: index), toOffset: index - 1)
                         }
                     }
                 }
                 .padding(.bottom)
                 
                 Button {
-                    let number = project.schemes.count + 1
-                    project.schemes.append(Scheme(name: "New Scheme \(number)", platforms: [.iOS]))
+                    let number = schemes.count + 1
+                    schemes.append(Scheme(name: "New Scheme \(number)", platforms: [.iOS]))
                 } label: {
                     Image(systemName: "plus")
                 }
@@ -179,13 +181,8 @@ extension Binding {
 }
 
 #Preview {
-    @Previewable @State var project = Project(
-        schemes: [
-            .init(name: "Beta", platforms: [
-                .iOS
-            ])
-        ]
-    )
+    @Previewable @State var project = Project()
+    @Previewable @State var schemes: [Scheme] = []
     
-    ProjectEditorView(project: $project)
+    ProjectEditorView(project: $project, schemes: $schemes)
 }

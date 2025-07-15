@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Dependencies
+import Core
 
 @main
 struct XcodeBuilder2App: App {

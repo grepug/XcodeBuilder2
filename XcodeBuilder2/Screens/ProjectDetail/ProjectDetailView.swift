@@ -76,58 +76,24 @@ struct ProjectDetailView: View {
     
     @ViewBuilder
     func status(for build: BuildModel) -> some View {
-        if let start = build.start_date {
+        if let start = build.startDate {
             Text("Started at \(formatter.string(from: start))")
         }
         
-        if let end = build.end_date {
+        if let end = build.endDate {
             Text("Ended at \(formatter.string(from: end))")
             
-            let duration = end.timeIntervalSince(build.start_date!)
+            let duration = end.timeIntervalSince(build.startDate!)
             
             Text("Duration: \(Int(duration)) seconds")
         }
     }
     
     func schemeName(for build: BuildModel) -> String {
-        if let scheme = schemes.first(where: { $0.id == build.scheme_id }) {
+        if let scheme = schemes.first(where: { $0.id == build.schemeId }) {
             return scheme.name
         }
         
         return "Unknown Scheme"
-    }
-}
-
-struct ProjectDetailRequest: SharingGRDB.FetchKeyRequest {
-    var id: String
-    
-    struct Result {
-        let project: Project
-        let builds: [BuildModel]
-        let schemes: [Scheme]
-    }
-    
-    func fetch(_ db: Database) throws -> Result? {
-        guard var project = (try ProjectModel.where { $0.bundle_identifier == id }
-            .fetchOne(db)?
-            .toProject()) else {
-                return nil
-            }
-        
-        let builds = try BuildModel
-            .join(SchemeModel.where { $0.project_bundle_identifier == id }, on: { $0.0.scheme_id == $0.1.id })
-            .where { a, b in b.project_bundle_identifier == id }
-            .fetchAll(db)
-            .map { $0.0 }
-        
-        let schemes = try SchemeModel
-            .where { $0.project_bundle_identifier == id }
-            .fetchAll(db)
-            .map { $0.toScheme() }
-            .sorted()
-        
-        project.schemes = schemes
-        
-        return .init(project: project, builds: builds, schemes: schemes)
     }
 }

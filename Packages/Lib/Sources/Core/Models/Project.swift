@@ -6,25 +6,37 @@
 //
 
 import Foundation
+import SharingGRDB
 
+@Table
 public struct Project: Codable, Sendable, Hashable, Identifiable {
+    @Column("bundle_identifier")
     public var bundleIdentifier: String
+    
     public var name: String
+    
+    @Column("display_name")
     public var displayName: String
+    
+    @Column("git_repo_url")
     public var gitRepoURL: URL
+    
+    @Column("xcodeproj_name")
     public var xcodeprojName: String
-    public var schemes: [Scheme]
+    
+    @Column("created_at")
+    public var createdAt: Date = .now
 
     public var id: String {
         bundleIdentifier
     }
 
-    public init(bundleIdentifier: String = "", name: String = "", displayName: String = "", gitRepoURL: URL = .init(string: "https://github.com")!, xcodeprojName: String = "", schemes: [Scheme] = []) {
+    public init(bundleIdentifier: String = "", createdAt: Date = .now, name: String = "", displayName: String = "", gitRepoURL: URL = .init(string: "https://github.com")!, xcodeprojName: String = "") {
         self.bundleIdentifier = bundleIdentifier
+        self.createdAt = createdAt
         self.name = name
         self.displayName = displayName
         self.gitRepoURL = gitRepoURL
         self.xcodeprojName = xcodeprojName
-        self.schemes = schemes
     }
 }

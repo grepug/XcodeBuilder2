@@ -45,7 +45,7 @@ class BuildManager {
             var buildModel: BuildModel!
             
             // ⚠️ FIXME: make a error property for BuildModel
-            if buildModel.end_date == nil {
+            if buildModel.endDate == nil {
                 existingTask.cancel()
             }
         }
@@ -66,7 +66,7 @@ class BuildManager {
                 try! await db.write { db in
                     try BuildModel
                         .where { $0.id == buildId }
-                        .update { $0.start_date = .now }
+                        .update { $0.startDate = .now }
                         .execute(db)
                 }
                 
@@ -79,7 +79,7 @@ class BuildManager {
                 try! await db.write { db in
                     try BuildModel
                         .where { $0.id == buildId }
-                        .update { $0.end_date = .now }
+                        .update { $0.endDate = .now }
                         .execute(db)
                 }
             } catch {

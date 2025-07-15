@@ -1,6 +1,7 @@
 import Foundation
+import SharingGRDB
 
-public enum Platform: String, Codable, Sendable, Hashable, Identifiable, CaseIterable {
+public enum Platform: String, Codable, Sendable, Hashable, Identifiable, CaseIterable, QueryBindable {
     case iOS
     case macOS
     case macCatalyst

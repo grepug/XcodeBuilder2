@@ -3,13 +3,13 @@ import Dependencies
 
 public struct XcodeBuildPayload {
     let project: Project
-    let schemeName: String
+    let scheme: Scheme
     let version: Version
     let exportOptions: [ExportOption]
     
-    public init(project: Project, schemeName: String, version: Version, exportOptions: [ExportOption]) {
+    public init(project: Project, scheme: Scheme, version: Version, exportOptions: [ExportOption]) {
         self.project = project
-        self.schemeName = schemeName
+        self.scheme = scheme
         self.version = version
         self.exportOptions = exportOptions
     }
@@ -119,10 +119,7 @@ private extension XcodeBuildJob {
     }
     
     var scheme: Scheme {
-        guard let scheme = payload.project.schemes.first(where: { $0.name == payload.schemeName }) else {
-            fatalError("Scheme \(payload.schemeName) not found in project \(payload.project.name)")
-        }
-        return scheme
+        payload.scheme
     }
     
     func cloneRepository() async throws {
@@ -154,13 +151,11 @@ private extension XcodeBuildJob {
         logger.info("Resolving package dependencies for \(payload.project.name)")
         
         do {
-            let firstPlatform = payload.project.schemes.first?.platforms.first ?? .iOS
-            
             let command = XcodeBuildCommand(
                 kind: .resolvePackageDependencies,
                 scheme: scheme,
                 version: payload.version,
-                platform: firstPlatform,
+                platform: .iOS,
                 projectURL: xcodeprojURL,
                 archiveURL: archiveURL,
                 derivedDataURL: derivedDataURL,
