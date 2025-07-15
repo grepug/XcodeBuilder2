@@ -118,6 +118,15 @@ extension DatabaseWriter where Self == DatabaseQueue {
             .execute(db)
         }
 
+        migrator.registerMigration("Add commit hash to builds") { db in
+            try #sql(
+                """
+                ALTER TABLE "builds" ADD COLUMN "commit_hash" TEXT NOT NULL DEFAULT ''
+                """
+            )
+            .execute(db)
+        }
+
         try! migrator.migrate(databaseQueue)
         
         return databaseQueue

@@ -67,7 +67,7 @@ struct BuildEditor: View {
             Section {
                 Picker("Version:", selection: $versionSelection) {
                     ForEach(sortedVersions, id: \.self) { item in
-                        Text("\(item.version) (\(item.buildNumber))")
+                        Text(item.tagName)
                             .tag(item)
                     }
                     

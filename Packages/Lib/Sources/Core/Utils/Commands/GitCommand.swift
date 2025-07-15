@@ -26,14 +26,16 @@ public struct GitCommand {
         let res = try await runShellCommandComplete(command).combinedOutput
         let lines = res.split(separator: "\n")
         
-        print("lines", lines)
-        
         var versions: [Version] = []
         
         for line in lines {
-            let matches = line.matches(of: #/v([\d\.]+.?)_(\d+)$/#)
+            let matches = line.matches(of: #/v([\d\.]+.?)_(\d+)\^\{\}$/#)
             
             guard !matches.isEmpty else {
+                continue
+            }
+
+            guard let commitHash = line.split(separator: "\t").first else {
                 continue
             }
             
@@ -44,12 +46,35 @@ public struct GitCommand {
                 continue
             }
             
-            let version = Version(version: versionString, buildNumber: buildNumber)
+            let version = Version(
+                version: versionString,
+                buildNumber: buildNumber,
+                commitHash: String(commitHash),
+            )
             
             versions.append(version)
         }
         
         return versions
+    }
+
+    public static func fetchBranches(remoteURL: URL) async throws -> [String] {
+        let command = "git ls-remote --heads \(remoteURL.absoluteString)"
+        let res = try await runShellCommandComplete(command).combinedOutput
+        let lines = res.split(separator: "\n")
+        
+        var branches: [String] = []
+        
+        for line in lines {
+            let parts = line.split(separator: "\t")
+            guard parts.count > 1 else { continue }
+
+            let branchName = String(parts[1].split(separator: "/").last ?? "")
+
+            branches.append(branchName)
+        }
+
+        return branches.sorted()
     }
 }
 

@@ -43,6 +43,9 @@ public struct BuildModel: Identifiable, Sendable, Hashable {
     @Column("build_number")
     public var buildNumber: Int
 
+    @Column("commit_hash")
+    public var commitHash: String
+
     @Column("created_at")
     public var createdAt: Date = .now
 
@@ -78,7 +81,8 @@ public struct BuildModel: Identifiable, Sendable, Hashable {
         createdAt: Date = .now, 
         startDate: Date? = nil, 
         endDate: Date? = nil, 
-        exportOptions: [ExportOption] = [], 
+        exportOptions: [ExportOption] = [],
+        commitHash: String = "",
         status: BuildStatus = .queued,
         progress: Double = 0
     ) {
@@ -92,5 +96,6 @@ public struct BuildModel: Identifiable, Sendable, Hashable {
         self.status = status
         self.exportOptions = exportOptions
         self.progress = progress
+        self.commitHash = commitHash
     }
 }
