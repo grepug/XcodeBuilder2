@@ -2,11 +2,11 @@ import Foundation
 import Dependencies
 
 public protocol XcodeBuildPathManager: Sendable {
-    func projectPath(for project: Project, version: Version) -> String
-    func xcodeprojPath(for project: Project, version: Version) -> String
-    func derivedDataPath(for project: Project, version: Version) -> String
-    func archivePath(for project: Project, version: Version) -> String
-    func exportPath(for project: Project, version: Version) -> String?
+    func projectURL(for project: Project, version: Version) -> URL
+    func xcodeprojURL(for project: Project, version: Version) -> URL
+    func derivedDataURL(for project: Project, version: Version) -> URL
+    func archiveURL(for project: Project, version: Version) -> URL
+    func exportURL(for project: Project, version: Version) -> URL?
 }
 
 struct XcodeBuildPathManagerLive: XcodeBuildPathManager {
@@ -22,37 +22,32 @@ struct XcodeBuildPathManagerLive: XcodeBuildPathManager {
             .appending(path: version.tagName)
     }
 
-    func projectPath(for project: Project, version: Version) -> String {
+    func projectURL(for project: Project, version: Version) -> URL {
         rootURL(for: project, version: version)
             .appending(path: "Project")
-            .path()
     }
 
-    func xcodeprojPath(for project: Project, version: Version) -> String {
-        URL(filePath: projectPath(for: project, version: version))
+    func xcodeprojURL(for project: Project, version: Version) -> URL {
+        URL(filePath: projectURL(for: project, version: version).path())
             .appending(path: project.xcodeprojName)
             .appendingPathExtension("xcodeproj")
-            .path()
     }
 
-    func derivedDataPath(for project: Project, version: Version) -> String {
+    func derivedDataURL(for project: Project, version: Version) -> URL {
         rootURL(for: project, version: version)
             .appending(path: "DerivedData")
-            .path()
     }
 
-    func archivePath(for project: Project, version: Version) -> String {
+    func archiveURL(for project: Project, version: Version) -> URL {
         rootURL(for: project, version: version)
             .appending(path: "Archives")
             .appending(path: "\(version.tagName).xcarchive")
-            .path()
     }
 
-    func exportPath(for project: Project, version: Version) -> String? {
+    func exportURL(for project: Project, version: Version) -> URL? {
         rootURL(for: project, version: version)
             .appending(path: "Exports")
             .appending(path: "\(version.tagName)")
-            .path()
     }
 }
 

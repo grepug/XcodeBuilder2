@@ -97,25 +97,25 @@ public actor XcodeBuildJob: Sendable {
 }
 
 private extension XcodeBuildJob {
-    var projectPath: String {
-        ensuredPath(pathManager.projectPath(for: payload.project, version: payload.version))
+    var projectURL: URL {
+        ensuredURL(pathManager.projectURL(for: payload.project, version: payload.version))
     }
     
-    var xcodeprojPath: String {
-        ensuredPath(pathManager.xcodeprojPath(for: payload.project, version: payload.version))
+    var xcodeprojURL: URL {
+        ensuredURL(pathManager.xcodeprojURL(for: payload.project, version: payload.version))
     }
     
-    var archivePath: String {
-        ensuredPath(pathManager.archivePath(for: payload.project, version: payload.version))
+    var archiveURL: URL {
+        ensuredURL(pathManager.archiveURL(for: payload.project, version: payload.version))
     }
     
-    var derivedDataPath: String {
-        ensuredPath(pathManager.derivedDataPath(for: payload.project, version: payload.version))
+    var derivedDataURL: URL {
+        ensuredURL(pathManager.derivedDataURL(for: payload.project, version: payload.version))
     }
     
-    var exportPath: String? {
-        pathManager.exportPath(for: payload.project, version: payload.version)
-            .map { ensuredPath($0) }
+    var exportURL: URL? {
+        pathManager.exportURL(for: payload.project, version: payload.version)
+            .map { ensuredURL($0) }
     }
     
     var scheme: Scheme {
@@ -129,7 +129,7 @@ private extension XcodeBuildJob {
         logger.info("Cloning repository at \(payload.project.gitRepoURL)")
         
         do {
-            try await GitCommand(path: projectPath).clone(
+            try await GitCommand(pathURL: projectURL).clone(
                 remoteURL: payload.project.gitRepoURL,
                 tag: payload.version.tagName,
             )
@@ -137,7 +137,7 @@ private extension XcodeBuildJob {
             logger.info("Repository cloned successfully.")
             
             updateVersions(
-                url: URL(filePath: projectPath),
+                url: projectURL,
                 version: payload.version.version,
                 buildNumber: "\(payload.version.buildNumber)",
             )
@@ -161,10 +161,10 @@ private extension XcodeBuildJob {
                 scheme: scheme,
                 version: payload.version,
                 platform: firstPlatform,
-                projectPath: xcodeprojPath,
-                archivePath: archivePath,
-                derivedDataPath: derivedDataPath,
-                exportPath: exportPath,
+                projectURL: xcodeprojURL,
+                archiveURL: archiveURL,
+                derivedDataURL: derivedDataURL,
+                exportURL: exportURL,
             )
             
             print("command2: \(command.string)")
@@ -184,7 +184,7 @@ private extension XcodeBuildJob {
         logger.info("Archiving project \(payload.project.name)")
         
         let platforms = scheme.platforms
-        let archivePath = archivePath
+        let archivePath = archiveURL.path()
         
         assert(!platforms.isEmpty, "No platforms found in project \(payload.project.name)")
         assert(Set(platforms).count == platforms.count, "Duplicate platforms found: \(platforms)")
@@ -195,10 +195,10 @@ private extension XcodeBuildJob {
                 scheme: scheme,
                 version: payload.version,
                 platform: platform,
-                projectPath: xcodeprojPath,
-                archivePath: archivePath,
-                derivedDataPath: derivedDataPath,
-                exportPath: exportPath
+                projectURL: xcodeprojURL,
+                archiveURL: archiveURL,
+                derivedDataURL: derivedDataURL,
+                exportURL: exportURL
             )
         }
         
@@ -248,10 +248,10 @@ private extension XcodeBuildJob {
             version: payload.version,
             platform: platform,
             exportOption: .appStore,
-            projectPath: xcodeprojPath,
-            archivePath: archivePath,
-            derivedDataPath: derivedDataPath,
-            exportPath: nil,
+            projectURL: xcodeprojURL,
+            archiveURL: archiveURL,
+            derivedDataURL: derivedDataURL,
+            exportURL: nil,
         )
 
         let exportToReleaseTestingCommand = XcodeBuildCommand(
@@ -260,10 +260,10 @@ private extension XcodeBuildJob {
             version: payload.version,
             platform: platform,
             exportOption: .releaseTesting,
-            projectPath: xcodeprojPath,
-            archivePath: archivePath,
-            derivedDataPath: derivedDataPath,
-            exportPath: exportPath,
+            projectURL: xcodeprojURL,
+            archiveURL: archiveURL,
+            derivedDataURL: derivedDataURL,
+            exportURL: exportURL,
         )
 
         let project = payload.project
@@ -280,7 +280,7 @@ private extension XcodeBuildJob {
                     case .releaseTesting:
                         self.logger.info("Exporting archive for platform \(platform) to Release Testing at \(exportToReleaseTestingCommand.exportOption!)")
                         try await runShellCommandComplete(exportToReleaseTestingCommand.string)
-                        _ = try await uploader.upload(project: project, version: version, ipaPath: exportToReleaseTestingCommand.exportPath!)
+                        _ = try await uploader.upload(project: project, version: version, ipaURL: exportToReleaseTestingCommand.exportURL!)
                     }
                 }
             }
@@ -290,10 +290,10 @@ private extension XcodeBuildJob {
     }
 
     func cleanup() async throws {
-        logger.info("Cleaning up project at \(xcodeprojPath)")
+        logger.info("Cleaning up project at \(xcodeprojURL.path())")
         do {
-            try FileManager.default.removeItem(atPath: derivedDataPath)
-//            try FileManager.default.removeItem(atPath: projectPath)
+            try FileManager.default.removeItem(atPath: derivedDataURL.path())
+//            try FileManager.default.removeItem(atPath: projectURL.path())
 
             logger.info("Project cleaned up successfully.")
         } catch {

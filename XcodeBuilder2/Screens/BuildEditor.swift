@@ -107,10 +107,10 @@ struct BuildEditor: View {
             version: version,
             platform: platform,
             exportOption: nil,
-            projectPath: pathManager.xcodeprojPath(for: project, version: version),
-            archivePath: pathManager.archivePath(for: project, version: version),
-            derivedDataPath: pathManager.derivedDataPath(for: project, version: version),
-            exportPath: nil
+            projectURL: pathManager.xcodeprojURL(for: project, version: version),
+            archiveURL: pathManager.archiveURL(for: project, version: version),
+            derivedDataURL: pathManager.derivedDataURL(for: project, version: version),
+            exportURL: nil
         ).string
     }
     

@@ -43,10 +43,10 @@ public struct XcodeBuildCommand: Sendable {
     var version: Version
     var platform: Platform
     var exportOption: ExportOption?
-    let projectPath: String
-    let archivePath: String
-    let derivedDataPath: String
-    let exportPath: String?
+    let projectURL: URL
+    let archiveURL: URL
+    let derivedDataURL: URL
+    let exportURL: URL?
 
     var sdkString: String {
         guard kind != .exportArchive else {
@@ -75,28 +75,28 @@ public struct XcodeBuildCommand: Sendable {
     public var string: String {
         """
         xcodebuild \
-        -project \(projectPath) \
+        -project \(projectURL.path()) \
         -skipMacroValidation \
         -skipPackagePluginValidation \
-        -derivedDataPath \(derivedDataPath) \
-        -archivePath \(archivePath) \
+        -derivedDataPath \(derivedDataURL.path()) \
+        -archivePath \(archiveURL.path()) \
         \(schemeString) \
         \(sdkString) \
         \(exportOptionsPlist) \
-        \(exportPath.map { "-exportPath \($0)" } ?? "") \
+        \(exportURL.map { "-exportPath \($0.path())" } ?? "") \
         \(kind.command)
         """
     }
     
-    public init(kind: Kind, scheme: Scheme, version: Version, platform: Platform, exportOption: ExportOption? = nil, projectPath: String, archivePath: String, derivedDataPath: String, exportPath: String?) {
+    public init(kind: Kind, scheme: Scheme, version: Version, platform: Platform, exportOption: ExportOption? = nil, projectURL: URL, archiveURL: URL, derivedDataURL: URL, exportURL: URL?) {
         self.kind = kind
         self.scheme = scheme
         self.version = version
         self.platform = platform
         self.exportOption = exportOption
-        self.projectPath = projectPath
-        self.archivePath = archivePath
-        self.derivedDataPath = derivedDataPath
-        self.exportPath = exportPath
+        self.projectURL = projectURL
+        self.archiveURL = archiveURL
+        self.derivedDataURL = derivedDataURL
+        self.exportURL = exportURL
     }
 }

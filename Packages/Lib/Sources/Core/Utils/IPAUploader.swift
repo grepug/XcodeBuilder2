@@ -6,7 +6,7 @@ struct IPAUploaderKey: DependencyKey {
 }
 
 protocol IPAUploader: Sendable {
-    func upload(project: Project, version: Version, ipaPath: String) async throws -> String
+    func upload(project: Project, version: Version, ipaURL: URL) async throws -> String
 }
 
 extension DependencyValues {
@@ -17,11 +17,11 @@ extension DependencyValues {
 }
 
 struct IPAUploaderLive: IPAUploader {
-    func upload(project: Project, version: Version, ipaPath: String) async throws -> String {
+    func upload(project: Project, version: Version, ipaURL: URL) async throws -> String {
         // Implementation for uploading the IPA file
         // This would typically involve using a service like App Store Connect API or Firebase App Distribution
         
         // For demonstration purposes, we will just return a success message
-        return "IPA uploaded successfully for project \(project.name), version \(version) at \(ipaPath)"
+        return "IPA uploaded successfully for project \(project.name), version \(version) at \(ipaURL.path())"
     }
 }

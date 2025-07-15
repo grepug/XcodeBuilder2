@@ -1,10 +1,10 @@
 import Foundation
 
 public struct GitCommand {
-    let path: String
+    let pathURL: URL
 
     func clone(remoteURL: URL, branch: String? = nil, tag: String? = nil, onlyLatestDepth: Bool = true) async throws {
-        var command = "git clone \(remoteURL.absoluteString) \(path)"
+        var command = "git clone \(remoteURL.absoluteString) \(pathURL.path())"
         
         if let tag {
             command += " --branch \(tag)"
