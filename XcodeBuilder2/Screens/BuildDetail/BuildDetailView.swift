@@ -39,6 +39,20 @@ struct BuildDetailView: View {
     var logs: [BuildLog]
     var scheme: Scheme?
     
+    @State private var selectedTab: DetailTab = .info
+    
+    enum DetailTab: String, CaseIterable {
+        case info = "Info"
+        case logs = "Logs"
+        
+        var symbol: String {
+            switch self {
+            case .info: return "info.circle"
+            case .logs: return "doc.text"
+            }
+        }
+    }
+    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -47,33 +61,22 @@ struct BuildDetailView: View {
                 
                 Divider()
                 
-                // Show logs first when running
-                if build.status == .running {
-                    // Logs Section
-                    logsSection
-                    
-                    Divider()
+                // Segmented Control
+                Picker("", selection: $selectedTab) {
+                    ForEach(DetailTab.allCases, id: \.self) { tab in
+                        Image(systemName: tab.symbol)
+                            .tag(tab)
+                    }
                 }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
                 
-                // Build & Version Information (combined and compact)
-                buildAndVersionInfo
-                
-                Divider()
-                
-                // Export Options
-                exportOptionsSection
-                
-                Divider()
-                
-                // Timestamps
-                timestampsSection
-                
-                // Show logs last when not running
-                if build.status != .running {
-                    Divider()
-                    
-                    // Logs Section
-                    logsSection
+                // Content based on selected tab
+                switch selectedTab {
+                case .info:
+                    infoContent
+                case .logs:
+                    logsContent
                 }
                 
                 Spacer()
@@ -81,6 +84,12 @@ struct BuildDetailView: View {
             .padding()
         }
         .navigationTitle("Build Details")
+        .onAppear {
+            // Auto-select logs tab for running builds
+            if build.status == .running {
+                selectedTab = .logs
+            }
+        }
     }
     
     private var buildHeader: some View {
@@ -210,40 +219,64 @@ struct BuildDetailView: View {
                     .foregroundStyle(.secondary)
             }
             
-            if build.status == .running {
-                // Expanded view for running builds
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 8) {
-                        ForEach(logs) { log in
-                            LogEntryView(log: log)
-                        }
-                    }
-                    .padding(.vertical, 8)
-                }
-                .frame(maxHeight: 400)
-                .cornerRadius(8)
+            if logs.isEmpty {
+                Text("No logs available")
+                    .foregroundStyle(.secondary)
+                    .italic()
+                    .padding()
             } else {
-                // Collapsed view for non-running builds
-                DisclosureGroup("View Logs") {
-                    if logs.isEmpty {
-                        Text("No logs available")
-                            .foregroundStyle(.secondary)
-                            .italic()
-                            .padding()
-                    } else {
-                        ScrollView {
-                            LazyVStack(alignment: .leading, spacing: 8) {
-                                ForEach(logs) { log in
-                                    LogEntryView(log: log)
-                                }
-                            }
-                            .padding(.vertical, 8)
-                        }
-                        .frame(maxHeight: 300)
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    ForEach(logs) { log in
+                        LogEntryView(log: log)
                     }
                 }
-                .background(Color(.lightGray))
-                .cornerRadius(8)
+                .padding(.vertical, 8)
+            }
+        }
+    }
+    
+    private var infoContent: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // Build & Version Information (combined and compact)
+            buildAndVersionInfo
+            
+            Divider()
+            
+            // Export Options
+            exportOptionsSection
+            
+            Divider()
+            
+            // Timestamps
+            timestampsSection
+        }
+    }
+    
+    private var logsContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Build Logs")
+                    .font(.headline)
+                
+                Spacer()
+                
+                Text("\(logs.count) logs")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            
+            if logs.isEmpty {
+                Text("No logs available")
+                    .foregroundStyle(.secondary)
+                    .italic()
+                    .padding()
+            } else {
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    ForEach(logs) { log in
+                        LogEntryView(log: log)
+                    }
+                }
+                .padding(.vertical, 8)
             }
         }
     }
@@ -372,7 +405,8 @@ struct LogEntryView: View {
     private var timeFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateStyle = .none
-        formatter.timeStyle = .medium
+        formatter.timeStyle = .none
+        formatter.dateFormat = "HH:mm:ss.SSS"
         return formatter
     }
 }
