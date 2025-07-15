@@ -13,6 +13,7 @@ struct BuildDetailViewContainer: View {
     var buildId: UUID
     
     @FetchOne var fetchedBuild: BuildModel?
+    @FetchAll var logs: [BuildLog]
     
     var build: BuildModel {
         fetchedBuild ?? .init(id: buildId)
@@ -21,15 +22,18 @@ struct BuildDetailViewContainer: View {
     var body: some View {
         BuildDetailView(
             build: build,
+            logs: logs,
         )
         .task(id: buildId) {
             try! await $fetchedBuild.load(BuildModel.where { $0.id == buildId })
+            try! await $logs.load(BuildLog.where { $0.buildId == buildId }.order(by: \.createdAt))
         }
     }
 }
 
 struct BuildDetailView: View {
     var build: BuildModel
+    var logs: [BuildLog]
     
     var body: some View {
         ScrollView {
@@ -62,7 +66,6 @@ struct BuildDetailView: View {
             .padding()
         }
         .navigationTitle("Build Details")
-//        .navigationBarTitleDisplayMode(.inline)
     }
     
     private var buildHeader: some View {
@@ -222,6 +225,9 @@ struct InfoRow: View {
             endDate: Date().addingTimeInterval(-300),
             exportOptions: [.appStore, .releaseTesting],
             status: .completed
-        )
+        ),
+        logs: [
+            
+        ]
     )
 }

@@ -34,6 +34,10 @@ struct ProjectDetailViewContainer: View {
             schemes: fetchedValue?.schemes ?? []
         ) { build in
             Task {
+                await buildManager.cancelBuild(build)
+            }
+        } onDelete: { build in
+            Task {
                 await buildManager.deleteBuild(build)
             }
         }
@@ -48,6 +52,7 @@ struct ProjectDetailView: View {
     var builds: [BuildModel]
     var schemes: [Scheme] = []
     
+    var onCancel: ((BuildModel) -> Void)?
     var onDelete: ((BuildModel) -> Void)?
     
     @Dependency(\.defaultDatabase) var db
@@ -60,6 +65,12 @@ struct ProjectDetailView: View {
             ForEach(builds) { build in
                 BuildItemView(build: build, schemes: schemes)
                     .contextMenu {
+                        if build.status == .running {
+                            Button("Cancel", action: {
+                                onCancel?(build)
+                            })
+                        }
+                        
                         Button("Delete", role: .destructive) {
                             onDelete?(build)
                         }

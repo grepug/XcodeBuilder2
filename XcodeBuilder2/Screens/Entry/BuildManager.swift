@@ -9,6 +9,17 @@ import Foundation
 import Core
 import SharingGRDB
 
+enum BuildManagerError: LocalizedError {
+    case buildIsRunning
+    
+    var errorDescription: String? {
+        switch self {
+        case .buildIsRunning:
+            return "Build is currently running."
+        }
+    }
+}
+
 @Observable
 class BuildManager {
     @ObservationIgnored
@@ -34,34 +45,23 @@ class BuildManager {
         }
     }
     
-    func createJob(payload: XcodeBuildPayload, buildModel: BuildModel) async {
-        await createBuildIfNeeded(buildModel: buildModel)
-        
+    func createJob(payload: XcodeBuildPayload, buildModel: BuildModel) async throws(BuildManagerError) {
         let buildId = buildModel.id
         
-        // Cancel any existing task for this buildId
-        if let existingTask = tasks[buildId] {
-            @FetchOne(BuildModel.where { $0.id == buildId })
-            var buildModel: BuildModel!
-            
-            // ⚠️ FIXME: make a error property for BuildModel
-            if buildModel.endDate == nil {
-                existingTask.cancel()
-            }
+        guard tasks[buildId] == nil else {
+            throw BuildManagerError.buildIsRunning
         }
+        
+        await createBuildIfNeeded(buildModel: buildModel)
         
         let task = Task {
             do {
                 let job = XcodeBuildJob(
                     payload: payload,
-                    logger: .init(info: {
-                        print("Info: \($0)")
-                    }, warning: {
-                        print("Warning: \($0)")
-                    }, error: {
-                        print("Error: \($0)")
-                    })
-                )
+                ) { [unowned self] log in
+                    writeLog(log)
+                    print("\(log.level): \(log.content)")
+                }
                 
                 await updateBuild(id: buildId) {
                     $0.startDate = .now
@@ -100,11 +100,32 @@ class BuildManager {
         }
     }
     
+    func writeLog(_ log: BuildLog)  {
+        Task {
+            try! await db.write { db in
+                try BuildLog
+                    .insert { log }
+                    .execute(db)
+            }
+        }
+    }
+    
     func deleteBuild(_ build: BuildModel) async {
         try! await db.write { db in
             try BuildModel
                 .delete(build)
                 .execute(db)
+        }
+    }
+    
+    func cancelBuild(_ build: BuildModel) async {
+        guard let task = tasks[build.id] else { return }
+        
+        task.cancel()
+        
+        await updateBuild(id: build.id) {
+            $0.status = .cancelled
+            $0.endDate = .now
         }
     }
 }

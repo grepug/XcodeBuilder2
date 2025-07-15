@@ -6,12 +6,14 @@ public struct XcodeBuildPayload {
     let scheme: Scheme
     let version: Version
     let exportOptions: [ExportOption]
-    
-    public init(project: Project, scheme: Scheme, version: Version, exportOptions: [ExportOption]) {
+    let buildId: UUID
+
+    public init(project: Project, scheme: Scheme, version: Version, exportOptions: [ExportOption], buildId: UUID) {
         self.project = project
         self.scheme = scheme
         self.version = version
         self.exportOptions = exportOptions
+        self.buildId = buildId
     }
 }
 
@@ -21,30 +23,18 @@ public struct XcodeBuildProgress: Sendable {
     public var isFinished = false
 }
 
-public struct XcodeBuildLogger: Sendable {
-    var info: @Sendable (String) -> Void
-    var warning: @Sendable (String) -> Void
-    var error: @Sendable (String) -> Void
-    
-    public init(info: @escaping @Sendable (String) -> Void, warning: @escaping @Sendable (String) -> Void, error: @escaping @Sendable (String) -> Void) {
-        self.info = info
-        self.warning = warning
-        self.error = error
-    }
-}
-
 public actor XcodeBuildJob: Sendable {
     let payload: XcodeBuildPayload
-    let logger: XcodeBuildLogger
+    let log: (BuildLog) -> Void
     
     public typealias Stream = AsyncThrowingStream<XcodeBuildProgress, Error>
     
     @Dependency(\.xcodeBuildPathManager) var pathManager
     @Dependency(\.ipaUploader) var ipaUploader
-    
-    public init(payload: XcodeBuildPayload, logger: XcodeBuildLogger) {
+
+    public init(payload: XcodeBuildPayload, log: @escaping (BuildLog) -> Void) {
         self.payload = payload
-        self.logger = logger
+        self.log = log
     }
     
     public func startBuild() -> Stream {
@@ -57,7 +47,7 @@ public actor XcodeBuildJob: Sendable {
             do {
                 try await self.build(continuation: continuation)
             } catch {
-                self.logger.error("Build failed: \(error.localizedDescription)")
+                log("Build failed: \(error.localizedDescription)", at: .error)
 
                 try await self.cleanup()
 
@@ -121,9 +111,14 @@ private extension XcodeBuildJob {
     var scheme: Scheme {
         payload.scheme
     }
+
+    func log(_ content: String, at level: BuildLog.Level = .info) {
+        let logEntry = BuildLog(buildId: payload.buildId, content: content, level: level)
+        log(logEntry)
+    }
     
     func cloneRepository() async throws {
-        logger.info("Cloning repository at \(payload.project.gitRepoURL)")
+        log("Cloning repository at \(payload.project.gitRepoURL)")
         
         do {
             try await GitCommand(pathURL: projectURL).clone(
@@ -131,7 +126,7 @@ private extension XcodeBuildJob {
                 tag: payload.version.tagName,
             )
             
-            logger.info("Repository cloned successfully.")
+            log("Repository cloned successfully.")
             
             updateVersions(
                 url: projectURL,
@@ -139,16 +134,17 @@ private extension XcodeBuildJob {
                 buildNumber: "\(payload.version.buildNumber)",
             )
             
-            logger.info("Updated project versions to \(payload.version.version) (build \(payload.version.buildNumber))")
+            log("Updated project versions to \(payload.version.version) (build \(payload.version.buildNumber))")
         } catch {
-            logger.error("Failed to clone repository: \(error.localizedDescription)")
+            log("Failed to clone repository: \(error.localizedDescription)", at: .error)
             
             throw error
         }
     }
     
     func resolvePackageDependencies() async throws {
-        logger.info("Resolving package dependencies for \(payload.project.name)")
+        log("Resolving package dependencies for \(payload.project.name)")
+
         
         do {
             let command = XcodeBuildCommand(
@@ -165,19 +161,17 @@ private extension XcodeBuildJob {
             print("command2: \(command.string)")
             
             try await runShellCommand2(command.string).get()
-            
-            logger.info("Package dependencies resolved successfully.")
+
+            log("Package dependencies resolved successfully.")
         } catch {
-            logger.error("Failed to resolve package dependencies: \(error.localizedDescription)")
+            log("Failed to resolve package dependencies: \(error.localizedDescription)", at: .error)
             throw error
         }
     }
     
     func archiveProject() async throws {
-        let logger = self.logger
-        
-        logger.info("Archiving project \(payload.project.name)")
-        
+        log("Archiving project \(payload.project.name)")
+        let archiveURL = archiveURL
         let platforms = scheme.platforms
         let archivePath = archiveURL.path()
         
@@ -205,24 +199,24 @@ private extension XcodeBuildJob {
                         
                         try await Task.sleep(for: .seconds(delaySeconds))
                         
-                        logger.info("Running archive command: \(command.string)")
+                        await self.log("Running archive command: \(command.string)")
                         
                         for try await output in await runShellCommand2(command.string) {
                             print("output: \(output)")
                         }
-                        
-                        logger.info("Project archived successfully at \(archivePath)")
-                        
+
+                        await self.log("Project archived successfully at \(archivePath)")
+
                         try await self.exportArchive(platform: command.platform)
                     }
                 }
                 
                 try await group.waitForAll()
             }
-            
-            logger.info("Project archived successfully at \(archivePath)")
+
+            log("Project archived successfully at \(archivePath)")
         } catch {
-            logger.error("Failed to archive project: \(error.localizedDescription)")
+            log("Failed to archive project: \(error.localizedDescription)", at: .error)
             throw error
         }
     }
@@ -270,10 +264,10 @@ private extension XcodeBuildJob {
                 group.addTask {
                     switch option {
                     case .appStore:
-                        self.logger.info("Exporting archive for platform \(platform) to App Store")
+                        await self.log("Exporting archive for platform \(platform) to App Store")
                         try await runShellCommandComplete(exportToAppStoreCommand.string)
                     case .releaseTesting:
-                        self.logger.info("Exporting archive for platform \(platform) to Release Testing at \(exportToReleaseTestingCommand.exportOption!)")
+                        await self.log("Exporting archive for platform \(platform) to Release Testing at \(exportToReleaseTestingCommand.exportOption!)")
                         try await runShellCommandComplete(exportToReleaseTestingCommand.string)
                         _ = try await uploader.upload(project: project, version: version, ipaURL: exportToReleaseTestingCommand.exportURL!)
                     }
@@ -285,14 +279,14 @@ private extension XcodeBuildJob {
     }
 
     func cleanup() async throws {
-        logger.info("Cleaning up project at \(xcodeprojURL.path())")
+        log("Cleaning up project at \(xcodeprojURL.path())")
         do {
             try FileManager.default.removeItem(atPath: derivedDataURL.path())
 //            try FileManager.default.removeItem(atPath: projectURL.path())
 
-            logger.info("Project cleaned up successfully.")
+            log("Project cleaned up successfully.")
         } catch {
-            logger.warning("Failed to clean up project: \(error.localizedDescription)")
+            log("Failed to clean up project: \(error.localizedDescription)", at: .warning)
         }
     }
 }
