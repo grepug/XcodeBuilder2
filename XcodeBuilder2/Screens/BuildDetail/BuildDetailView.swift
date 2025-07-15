@@ -13,8 +13,11 @@ struct BuildDetailViewContainer: View {
     var buildId: UUID
     
     @FetchOne var fetchedBuild: BuildModel?
-    @FetchAll var logs: [BuildLog]
+    @FetchAll var logIds: [UUID]
     @FetchOne var scheme: Scheme?
+    
+    @State private var showDebugLogs: Bool = false
+    @State private var selectedTab: BuildDetailView.DetailTab = .info
     
     var build: BuildModel {
         fetchedBuild ?? .init(id: buildId)
@@ -23,24 +26,38 @@ struct BuildDetailViewContainer: View {
     var body: some View {
         BuildDetailView(
             build: build,
-            logs: logs,
+            logIds: logIds,
             scheme: scheme,
+            showDebugLogs: $showDebugLogs,
+            selectedTab: $selectedTab,
         )
         .task(id: buildId) {
+            showDebugLogs = false
+            selectedTab = .info
+            
             try! await $fetchedBuild.load(BuildModel.where { $0.id == buildId })
-            try! await $logs.load(BuildLog.where { $0.buildId == buildId }.order(by: \.createdAt))
             try! await $scheme.load(Scheme.where { $0.id == build.schemeId })
+        }
+        .task(id: [buildId, showDebugLogs] as [AnyHashable]) {
+            try! await $logIds.load(
+                BuildLog
+                    .where { $0.buildId == buildId }
+                    .where { showDebugLogs || $0.level != BuildLog.Level.debug }
+                    .order(by: \.createdAt)
+                    .select(\.id)
+            )
         }
     }
 }
 
 struct BuildDetailView: View {
     var build: BuildModel
-    var logs: [BuildLog]
+    var logIds: [UUID]
     var scheme: Scheme?
+    @Binding var showDebugLogs: Bool
+    @Binding var selectedTab: DetailTab
     
-    @State private var selectedTab: DetailTab = .info
-    @State private var showDebugLogs: Bool = false
+    @State private var position: ScrollPosition = .init(idType: BuildModel.ID.self)
     
     enum DetailTab: String, CaseIterable {
         case info = "Info"
@@ -83,7 +100,9 @@ struct BuildDetailView: View {
                 Spacer()
             }
             .padding()
+            .scrollTargetLayout()
         }
+        .scrollPosition($position)
         .navigationTitle("Build Details")
         .onAppear {
             // Auto-select logs tab for running builds
@@ -207,35 +226,6 @@ struct BuildDetailView: View {
         }
     }
     
-    private var logsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Build Logs")
-                    .font(.headline)
-                
-                Spacer()
-                
-                Text("\(filteredLogs.count) logs")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            
-            if filteredLogs.isEmpty {
-                Text("No logs available")
-                    .foregroundStyle(.secondary)
-                    .italic()
-                    .padding()
-            } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(filteredLogs) { log in
-                        LogEntryView(log: log)
-                    }
-                }
-                .padding(.vertical, 8)
-            }
-        }
-    }
-    
     private var infoContent: some View {
         VStack(alignment: .leading, spacing: 20) {
             // Build & Version Information (combined and compact)
@@ -266,51 +256,35 @@ struct BuildDetailView: View {
                     .toggleStyle(.switch)
                     .font(.caption)
                 
-                Text("\(filteredLogs.count) logs")
+                Text("\(logIds.count) logs")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             
-            if filteredLogs.isEmpty {
+            if logIds.isEmpty {
                 Text("No logs available")
                     .foregroundStyle(.secondary)
                     .italic()
                     .padding()
             } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 8) {
-                            ForEach(filteredLogs) { log in
-                                LogEntryView(log: log)
-                                    .id(log.id)
-                            }
-                        }
-                        .padding(.vertical, 8)
-                    }
-                    .onChange(of: filteredLogs.count) { _, newCount in
-                        // Auto-scroll to bottom when new logs are added
-                        if let lastLog = filteredLogs.last {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                proxy.scrollTo(lastLog.id, anchor: .bottom)
-                            }
-                        }
-                    }
-                    .onAppear {
-                        // Scroll to bottom on initial load
-                        if let lastLog = filteredLogs.last {
-                            proxy.scrollTo(lastLog.id, anchor: .bottom)
-                        }
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(logIds, id: \.self) { id in
+                        LogEntryViewContainer(id: id)
+                            .tag(id)
                     }
                 }
+                .padding(.vertical, 8)
+                .onChange(of: logIds.count) { _, newCount in
+                    // Auto-scroll to bottom when new logs are added
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        position.scrollTo(edge: .bottom)
+                    }
+                }
+                .onAppear {
+                    // Scroll to bottom when logs appear
+                    position.scrollTo(edge: .bottom)
+                }
             }
-        }
-    }
-    
-    private var filteredLogs: [BuildLog] {
-        if showDebugLogs {
-            return logs
-        } else {
-            return logs.filter { $0.level != .debug }
         }
     }
     
@@ -370,11 +344,26 @@ struct InfoRow: View {
     }
 }
 
+struct LogEntryViewContainer: View {
+    var id: UUID
+    
+    @State @FetchOne var fetchedLog: BuildLog?
+    
+    var body: some View {
+        LazyVStack {
+            LogEntryView(log: fetchedLog ?? .init(buildId: id, content: ""))
+                .task(id: id) {
+                    try! await $fetchedLog.wrappedValue.load(BuildLog.where { $0.id == id })
+                }
+        }
+    }
+}
+
 struct LogEntryView: View {
     let log: BuildLog
     
     var body: some View {
-        LazyHStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: 8) {
             // Level indicator
             Image(systemName: levelIcon)
                 .foregroundStyle(levelColor)
@@ -458,17 +447,10 @@ struct LogEntryView: View {
             exportOptions: [.appStore, .releaseTesting],
             status: .completed
         ),
-        logs: [
-            BuildLog(id: UUID(), buildId: UUID(), content: "Starting build process...", level: .info),
-            BuildLog(id: UUID(), buildId: UUID(), content: "🔧 DEBUG: Git clone command initialized", level: .debug),
-            BuildLog(id: UUID(), buildId: UUID(), content: "Cloning repository...", level: .info),
-            BuildLog(id: UUID(), buildId: UUID(), content: "🔧 DEBUG: Executing command: xcodebuild -resolvePackageDependencies", level: .debug),
-            BuildLog(id: UUID(), buildId: UUID(), content: "Package dependencies resolved", level: .info),
-            BuildLog(id: UUID(), buildId: UUID(), content: "Build warning: Deprecated API usage", level: .warning),
-            BuildLog(id: UUID(), buildId: UUID(), content: "🔧 DEBUG: Generated 2 archive commands for platforms", level: .debug),
-            BuildLog(id: UUID(), buildId: UUID(), content: "Archive created successfully", level: .info),
-        ],
-        scheme: Scheme(id: UUID(), name: "Release", platforms: [.iOS])
+        logIds: [],
+        scheme: Scheme(id: UUID(), name: "Release", platforms: [.iOS]),
+        showDebugLogs: .constant(false),
+        selectedTab: .constant(.info)
     )
 }
 
@@ -488,15 +470,9 @@ struct LogEntryView: View {
             status: .running,
             progress: 0.65
         ),
-        logs: [
-            BuildLog(id: UUID(), buildId: UUID(), content: "Starting build process...", level: .info),
-            BuildLog(id: UUID(), buildId: UUID(), content: "🔧 DEBUG: Git clone command initialized", level: .debug),
-            BuildLog(id: UUID(), buildId: UUID(), content: "Cloning repository...", level: .info),
-            BuildLog(id: UUID(), buildId: UUID(), content: "🔧 DEBUG: Executing command: xcodebuild -resolvePackageDependencies", level: .debug),
-            BuildLog(id: UUID(), buildId: UUID(), content: "Package dependencies resolved", level: .info),
-            BuildLog(id: UUID(), buildId: UUID(), content: "🔧 DEBUG: Starting archive for platform: iOS", level: .debug),
-            BuildLog(id: UUID(), buildId: UUID(), content: "Currently archiving project...", level: .info),
-        ],
+        logIds: [],
         scheme: Scheme(id: schemeId, name: "Beta", platforms: [.iOS, .macOS]),
+        showDebugLogs: .constant(true),
+        selectedTab: .constant(.logs)
     )
 }
