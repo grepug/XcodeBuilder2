@@ -9,7 +9,7 @@ import SwiftUI
 import Core
 import SharingGRDB
 
-struct ProjectDetailViewContainer: View {
+struct BuildListViewContainer: View {
     var id: String
     
     @State @FetchOne var project: Project?
@@ -26,11 +26,10 @@ struct ProjectDetailViewContainer: View {
     var body: some View {
         @Bindable var entryVM = entryVM
         
-        ProjectDetailView(
+        BuildListView(
             project: project ?? .init(),
             buildIds: buildIds,
             buildSelection: $entryVM.buildSelection,
-            schemes: schemes,
         )
         .task(id: id) {
             try! await $project.wrappedValue.load(Project.where { $0.bundleIdentifier == id }, animation: .default)
@@ -44,16 +43,18 @@ struct ProjectDetailViewContainer: View {
                 animation: .default,
             )
         }
+        .task(id: [buildIds, entryVM.buildSelection] as [AnyHashable]) {
+            if entryVM.buildSelection == nil {
+                entryVM.buildSelection = buildIds.first
+            }
+        }
     }
 }
 
-struct ProjectDetailView: View {
+struct BuildListView: View {
     var project: Project
     var buildIds: [UUID]
     @Binding var buildSelection: UUID?
-    var schemes: [Scheme] = []
-    
-    @Dependency(\.defaultDatabase) var db
     
     var body: some View {
         List(buildIds, id: \.self, selection: $buildSelection) { id in

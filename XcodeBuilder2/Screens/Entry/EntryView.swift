@@ -56,12 +56,17 @@ struct EntryView: View {
                 vm.projectSelection = nil
             }
         }
+        .onChange(of: items, initial: true) { oldValue, newValue in
+            if vm.projectSelection == nil, let first = newValue.first {
+                vm.projectSelection = first.bundleIdentifier
+            }
+        }
     }
 
     var content: some View {
         Group {
             if let id = vm.projectSelection {
-                ProjectDetailViewContainer(id: id)
+                BuildListViewContainer(id: id)
             } else {
                 Text("Select a project to view details")
                     .foregroundColor(.secondary)
