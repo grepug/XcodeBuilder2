@@ -81,6 +81,7 @@ struct EntryView: View {
                     } label: {
                         Text("New Build")
                     }
+                    .keyboardShortcut("b", modifiers: .command)
                 }
             }
         }

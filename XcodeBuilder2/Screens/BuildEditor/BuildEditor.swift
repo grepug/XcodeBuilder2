@@ -113,19 +113,6 @@ struct BuildEditor: View {
                     .font(.title3.bold())
             }
             
-            if let string = xcodeBuildCommandString {
-                Divider()
-                    .padding(.vertical)
-                
-                Section {
-                    LabeledContent {
-                        Text(string)
-                    } label: {
-                        Text("Command:")
-                    }
-                }
-            }
-            
             Divider()
                 .padding(.vertical)
             

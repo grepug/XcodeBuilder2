@@ -13,7 +13,7 @@ struct BuildEditorContainer: View {
     var projectId: String
     var dismiss: (() -> Void)?
     
-    @State private var buildModel = BuildModel()
+    @State private var buildModel = BuildModel(exportOptions: [.appStore])
     @State private var versions: [Version] = []
     @State private var versionSelection: Version?
     @State private var showingError: LocalizedError?
@@ -30,6 +30,10 @@ struct BuildEditorContainer: View {
     var schemes: [Scheme] {
         fetchedValue?.schemes ?? []
     }
+
+    var loading: Bool {
+        versions.isEmpty
+    }
     
     var body: some View {
         BuildEditor(
@@ -41,6 +45,12 @@ struct BuildEditorContainer: View {
         ) {
             Task {
                 await handleStartBuild()
+            }
+        }
+        .opacity(loading ? 0 : 1)
+        .overlay {
+            if loading {
+                ProgressView("Loading versions...")
             }
         }
         .task(id: project) {
