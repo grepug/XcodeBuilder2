@@ -18,6 +18,7 @@ struct BuildDetailViewContainer: View {
     
     @State private var showDebugLogs: Bool = false
     @State private var selectedTab: BuildDetailView.DetailTab = .info
+    @State private var selectedCategory: XcodeBuildJobLogCategory?
     
     var build: BuildModel {
         fetchedBuild ?? .init(id: buildId)
@@ -30,19 +31,22 @@ struct BuildDetailViewContainer: View {
             scheme: scheme,
             showDebugLogs: $showDebugLogs,
             selectedTab: $selectedTab,
+            selectedCategory: $selectedCategory
         )
         .task(id: buildId) {
             showDebugLogs = false
             selectedTab = .info
+            selectedCategory = nil
             
             try! await $fetchedBuild.load(BuildModel.where { $0.id == buildId })
             try! await $scheme.load(Scheme.where { $0.id == build.schemeId })
         }
-        .task(id: [buildId, showDebugLogs] as [AnyHashable]) {
+        .task(id: [buildId, showDebugLogs, selectedCategory] as [AnyHashable]) {
             try! await $logIds.load(
                 BuildLog
                     .where { $0.buildId == buildId }
                     .where { showDebugLogs || $0.level != BuildLog.Level.debug }
+                    .where { selectedCategory == nil || $0.category == selectedCategory?.rawValue }
                     .order(by: \.createdAt)
                     .select(\.id)
             )
@@ -56,6 +60,7 @@ struct BuildDetailView: View {
     var scheme: Scheme?
     @Binding var showDebugLogs: Bool
     @Binding var selectedTab: DetailTab
+    @Binding var selectedCategory: XcodeBuildJobLogCategory?
     
     @State private var position: ScrollPosition = .init(idType: BuildModel.ID.self)
     
@@ -251,6 +256,16 @@ struct BuildDetailView: View {
                 
                 Spacer()
                 
+                // Category filter picker
+                Picker("Category", selection: $selectedCategory) {
+                    Text("All Categories").tag(nil as XcodeBuildJobLogCategory?)
+                    ForEach(XcodeBuildJobLogCategory.allCases, id: \.self) { category in
+                        Text(category.rawValue).tag(category as XcodeBuildJobLogCategory?)
+                    }
+                }
+                .pickerStyle(.menu)
+                .font(.caption)
+                
                 // Debug logs toggle
                 Toggle("Show debug logs", isOn: $showDebugLogs)
                     .toggleStyle(.switch)
@@ -376,6 +391,19 @@ struct LogEntryView: View {
                         .font(.caption2.bold())
                         .foregroundStyle(levelColor)
                     
+                    // Category badge
+                    if let category = log.category {
+                        Text(category.uppercased())
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(categoryColor(category).opacity(0.2))
+                            )
+                            .foregroundStyle(categoryColor(category))
+                    }
+                    
                     Spacer()
                     
                     Text(timeFormatter.string(from: log.createdAt))
@@ -424,6 +452,20 @@ struct LogEntryView: View {
         }
     }
     
+    private func categoryColor(_ category: String) -> Color {
+        guard let enumCategory = XcodeBuildJobLogCategory(rawValue: category) else {
+            return .primary
+        }
+        
+        switch enumCategory {
+        case .clone: return .green
+        case .resolveDependencies: return .blue
+        case .archive: return .orange
+        case .export: return .purple
+        case .cleanup: return .gray
+        }
+    }
+    
     private var timeFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateStyle = .none
@@ -450,7 +492,8 @@ struct LogEntryView: View {
         logIds: [],
         scheme: Scheme(id: UUID(), name: "Release", platforms: [.iOS]),
         showDebugLogs: .constant(false),
-        selectedTab: .constant(.info)
+        selectedTab: .constant(.info),
+        selectedCategory: .constant(nil)
     )
 }
 
@@ -473,6 +516,7 @@ struct LogEntryView: View {
         logIds: [],
         scheme: Scheme(id: schemeId, name: "Beta", platforms: [.iOS, .macOS]),
         showDebugLogs: .constant(true),
-        selectedTab: .constant(.logs)
+        selectedTab: .constant(.logs),
+        selectedCategory: .constant(nil)
     )
 }

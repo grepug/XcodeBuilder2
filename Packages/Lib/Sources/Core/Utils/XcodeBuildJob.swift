@@ -32,7 +32,7 @@ public struct XcodeBuildProgress: Sendable {
     public var isFinished = false
 }
 
-enum XcodeBuildJobLogCategory: String, Sendable {
+public enum XcodeBuildJobLogCategory: String, Sendable, CaseIterable {
     case clone = "Clone Repository"
     case resolveDependencies = "Resolve Dependencies"
     case archive = "Archive Project"
