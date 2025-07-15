@@ -63,7 +63,7 @@ class BuildManager {
                     print("\(log.level): \(log.content)")
                 }
                 
-                await updateBuild(id: buildId) {
+                updateBuild(id: buildId) {
                     $0.startDate = .now
                     $0.status = .running
                 }
@@ -73,19 +73,23 @@ class BuildManager {
                 for try await item in stream {
                     print("progress: \(item.progress) - \(item.message)")
                     
-                    await updateBuild(id: buildId) {
+                    updateBuild(id: buildId) {
                         $0.progress = item.progress
                     }
                 }
                 
-                await updateBuild(id: buildId) {
+                try Task.checkCancellation()
+                
+                updateBuild(id: buildId) {
                     $0.endDate = .now
                     $0.status = .completed
                 }
+            } catch is CancellationError {
+                // do nothing, the task was cancelled
             } catch {
                 print("Error running job: \(error)")
                 
-                await updateBuild(id: buildId) {
+                updateBuild(id: buildId) {
                     $0.endDate = .now
                     $0.status = .failed
                 }
@@ -95,12 +99,14 @@ class BuildManager {
         tasks[buildId] = task
     }
     
-    func updateBuild(id: UUID, update: @escaping (inout Updates<BuildModel>) -> Void) async {
-        try! await db.write { db in
-            try BuildModel
-                .where { $0.id == id }
-                .update { update(&$0) }
-                .execute(db)
+    func updateBuild(id: UUID, update: @escaping (inout Updates<BuildModel>) -> Void) {
+        Task {
+            try! await db.write { db in
+                try BuildModel
+                    .where { $0.id == id }
+                    .update { update(&$0) }
+                    .execute(db)
+            }
         }
     }
     
@@ -122,12 +128,14 @@ class BuildManager {
         }
     }
     
-    func cancelBuild(_ build: BuildModel) async {
-        guard let task = tasks[build.id] else { return }
+    func cancelBuild(_ build: BuildModel) {
+        guard let task = tasks[build.id] else {
+            return
+        }
         
         task.cancel()
         
-        await updateBuild(id: build.id) {
+        updateBuild(id: build.id) {
             $0.status = .cancelled
             $0.endDate = .now
         }

@@ -40,6 +40,7 @@ struct BuildDetailView: View {
     var scheme: Scheme?
     
     @State private var selectedTab: DetailTab = .info
+    @State private var showDebugLogs: Bool = false
     
     enum DetailTab: String, CaseIterable {
         case info = "Info"
@@ -214,19 +215,19 @@ struct BuildDetailView: View {
                 
                 Spacer()
                 
-                Text("\(logs.count) logs")
+                Text("\(filteredLogs.count) logs")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             
-            if logs.isEmpty {
+            if filteredLogs.isEmpty {
                 Text("No logs available")
                     .foregroundStyle(.secondary)
                     .italic()
                     .padding()
             } else {
                 LazyVStack(alignment: .leading, spacing: 8) {
-                    ForEach(logs) { log in
+                    ForEach(filteredLogs) { log in
                         LogEntryView(log: log)
                     }
                 }
@@ -260,24 +261,56 @@ struct BuildDetailView: View {
                 
                 Spacer()
                 
-                Text("\(logs.count) logs")
+                // Debug logs toggle
+                Toggle("Show debug logs", isOn: $showDebugLogs)
+                    .toggleStyle(.switch)
+                    .font(.caption)
+                
+                Text("\(filteredLogs.count) logs")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             
-            if logs.isEmpty {
+            if filteredLogs.isEmpty {
                 Text("No logs available")
                     .foregroundStyle(.secondary)
                     .italic()
                     .padding()
             } else {
-                LazyVStack(alignment: .leading, spacing: 8) {
-                    ForEach(logs) { log in
-                        LogEntryView(log: log)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 8) {
+                            ForEach(filteredLogs) { log in
+                                LogEntryView(log: log)
+                                    .id(log.id)
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    .onChange(of: filteredLogs.count) { _, newCount in
+                        // Auto-scroll to bottom when new logs are added
+                        if let lastLog = filteredLogs.last {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                proxy.scrollTo(lastLog.id, anchor: .bottom)
+                            }
+                        }
+                    }
+                    .onAppear {
+                        // Scroll to bottom on initial load
+                        if let lastLog = filteredLogs.last {
+                            proxy.scrollTo(lastLog.id, anchor: .bottom)
+                        }
                     }
                 }
-                .padding(.vertical, 8)
             }
+        }
+    }
+    
+    private var filteredLogs: [BuildLog] {
+        if showDebugLogs {
+            return logs
+        } else {
+            return logs.filter { $0.level != .debug }
         }
     }
     
@@ -427,9 +460,12 @@ struct LogEntryView: View {
         ),
         logs: [
             BuildLog(id: UUID(), buildId: UUID(), content: "Starting build process...", level: .info),
+            BuildLog(id: UUID(), buildId: UUID(), content: "🔧 DEBUG: Git clone command initialized", level: .debug),
             BuildLog(id: UUID(), buildId: UUID(), content: "Cloning repository...", level: .info),
+            BuildLog(id: UUID(), buildId: UUID(), content: "🔧 DEBUG: Executing command: xcodebuild -resolvePackageDependencies", level: .debug),
             BuildLog(id: UUID(), buildId: UUID(), content: "Package dependencies resolved", level: .info),
             BuildLog(id: UUID(), buildId: UUID(), content: "Build warning: Deprecated API usage", level: .warning),
+            BuildLog(id: UUID(), buildId: UUID(), content: "🔧 DEBUG: Generated 2 archive commands for platforms", level: .debug),
             BuildLog(id: UUID(), buildId: UUID(), content: "Archive created successfully", level: .info),
         ],
         scheme: Scheme(id: UUID(), name: "Release", platforms: [.iOS])
@@ -454,8 +490,11 @@ struct LogEntryView: View {
         ),
         logs: [
             BuildLog(id: UUID(), buildId: UUID(), content: "Starting build process...", level: .info),
+            BuildLog(id: UUID(), buildId: UUID(), content: "🔧 DEBUG: Git clone command initialized", level: .debug),
             BuildLog(id: UUID(), buildId: UUID(), content: "Cloning repository...", level: .info),
+            BuildLog(id: UUID(), buildId: UUID(), content: "🔧 DEBUG: Executing command: xcodebuild -resolvePackageDependencies", level: .debug),
             BuildLog(id: UUID(), buildId: UUID(), content: "Package dependencies resolved", level: .info),
+            BuildLog(id: UUID(), buildId: UUID(), content: "🔧 DEBUG: Starting archive for platform: iOS", level: .debug),
             BuildLog(id: UUID(), buildId: UUID(), content: "Currently archiving project...", level: .info),
         ],
         scheme: Scheme(id: schemeId, name: "Beta", platforms: [.iOS, .macOS]),

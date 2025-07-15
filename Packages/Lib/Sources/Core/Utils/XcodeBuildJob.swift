@@ -365,7 +365,8 @@ private extension XcodeBuildJob {
                            • \(exportToAppStoreCommand.string)
                         """, at: .debug)
                         
-                        try await runShellCommandComplete(exportToAppStoreCommand.string)
+                        try await runShellCommand2(exportToAppStoreCommand.string).get()
+                        
                         await self.log("✅ App Store export completed for \(platform.rawValue)", at: .info)
                     case .releaseTesting:
                         await self.log("""
@@ -374,7 +375,8 @@ private extension XcodeBuildJob {
                            • \(exportToReleaseTestingCommand.string)
                         """, at: .debug)
                         
-                        try await runShellCommandComplete(exportToReleaseTestingCommand.string)
+                        try await runShellCommand2(exportToReleaseTestingCommand.string).get()
+                        
                         await self.log("✅ Release Testing export completed for \(platform.rawValue)", at: .info)
                         
                         await self.log("📤 Starting IPA upload for \(platform.rawValue)", at: .info)
@@ -425,6 +427,6 @@ private extension XcodeBuildJob {
 
 //private extension XcodeBuildCommand {
 //    func run() async throws {
-//        try await runShellCommandComplete(command)
+//        try await runShellCommand2(command)
 //    }
 //}
