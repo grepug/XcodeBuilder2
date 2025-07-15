@@ -380,7 +380,7 @@ struct LogEntryView: View {
         case .info: return "info.circle.fill"
         case .warning: return "exclamationmark.triangle.fill"
         case .error: return "xmark.circle.fill"
-        case .debug: return "bug.fill"
+        case .debug: return "ladybug.fill"
         }
     }
     

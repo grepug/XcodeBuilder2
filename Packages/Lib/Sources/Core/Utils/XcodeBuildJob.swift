@@ -286,7 +286,7 @@ private extension XcodeBuildJob {
                         """, at: .debug)
                         
                         for try await output in await runShellCommand2(command.string) {
-                            await self.log("📊 Archive output: \(output)", at: .info)
+                            await self.log("📊 Archive output: \(output)", at: .debug)
                         }
 
                         await self.log("✅ Archive completed for platform: \(command.platform.rawValue)", at: .info)
