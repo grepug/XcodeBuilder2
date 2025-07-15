@@ -21,6 +21,7 @@ struct BuildEditorContainer: View {
     @Fetch var fetchedValue: ProjectDetailRequest.Result?
     
     @Environment(BuildManager.self) private var buildManager
+    @Environment(EntryViewModel.self) private var entryVM
     
     var project: Project {
         fetchedValue?.project ?? Project(displayName: "Loading...")
@@ -62,6 +63,10 @@ struct BuildEditorContainer: View {
             return
         }
         
+        buildModel.schemeId = scheme.id
+        buildModel.versionString = version.version
+        buildModel.buildNumber = version.buildNumber
+        
         do {
             try await buildManager.createJob(
                 payload: .init(
@@ -75,6 +80,7 @@ struct BuildEditorContainer: View {
             )
             
             dismiss!()
+            entryVM.buildSelection = buildModel.id
         } catch {
             showingError = error
         }
