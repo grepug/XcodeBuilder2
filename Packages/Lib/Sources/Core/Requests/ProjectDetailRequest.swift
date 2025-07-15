@@ -17,19 +17,19 @@ public struct ProjectDetailRequest: FetchKeyRequest {
     public func fetch(_ db: Database) throws -> Result? {
         guard let project = (try Project.where { $0.bundleIdentifier == id }
             .fetchOne(db)) else {
+                print("Project with bundle identifier \(id) not found")
                 return nil
             }
         
-        let builds = try BuildModel
-            .join(Scheme.where { $0.projectBundleIdentifier == id }, on: { $0.0.schemeId == $0.1.id })
-            .where { a, b in b.projectBundleIdentifier == id }
-            .fetchAll(db)
-            .map { $0.0 }
-
         let schemes = try Scheme
             .where { $0.projectBundleIdentifier == id }
             .fetchAll(db)
             .sorted()
+        
+        let builds = try BuildModel
+            .where { $0.schemeId.in(schemes.map(\.id)) }
+            .order { $0.createdAt.desc() }
+            .fetchAll(db)
         
         return .init(project: project, builds: builds, schemes: schemes)
     }

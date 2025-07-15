@@ -12,8 +12,10 @@ import SharingGRDB
 struct ProjectDetailViewContainer: View {
     var id: String
     
-    @Fetch var fetchedValue: ProjectDetailRequest.Result?
+    @State @Fetch var fetchedValue: ProjectDetailRequest.Result?
+    
     @Environment(BuildManager.self) private var buildManager
+    @Environment(EntryViewModel.self) private var entryVM
     
     var item: Project {
         fetchedValue?.project ?? Project(displayName: "Loading...")
@@ -28,9 +30,12 @@ struct ProjectDetailViewContainer: View {
     }
     
     var body: some View {
+        @Bindable var entryVM = entryVM
+        
         ProjectDetailView(
             project: item,
             builds: builds,
+            buildSelection: $entryVM.buildSelection,
             schemes: fetchedValue?.schemes ?? []
         ) { build in
             Task {
@@ -42,7 +47,7 @@ struct ProjectDetailViewContainer: View {
             }
         }
         .task(id: id) {
-            try! await $fetchedValue.load(ProjectDetailRequest(id: id))
+            try! await $fetchedValue.wrappedValue.load(ProjectDetailRequest(id: id))
         }
     }
 }
@@ -50,33 +55,29 @@ struct ProjectDetailViewContainer: View {
 struct ProjectDetailView: View {
     var project: Project
     var builds: [BuildModel]
+    @Binding var buildSelection: UUID?
     var schemes: [Scheme] = []
     
     var onCancel: ((BuildModel) -> Void)?
     var onDelete: ((BuildModel) -> Void)?
     
     @Dependency(\.defaultDatabase) var db
-    @Environment(EntryViewModel.self) private var entryVM
     
     var body: some View {
-        @Bindable var entryVM = entryVM
-        
-        List(selection: $entryVM.buildSelection) {
-            ForEach(builds) { build in
-                BuildItemView(build: build, schemes: schemes)
-                    .contextMenu {
-                        if build.status == .running {
-                            Button("Cancel", action: {
-                                onCancel?(build)
-                            })
-                        }
-                        
-                        Button("Delete", role: .destructive) {
-                            onDelete?(build)
-                        }
+        List(builds, selection: $buildSelection) { build in
+            BuildItemView(build: build, schemes: schemes)
+                .contextMenu {
+                    if build.status == .running {
+                        Button("Cancel", action: {
+                            onCancel?(build)
+                        })
                     }
-                    .tag(build.id)
-            }
+                    
+                    Button("Delete", role: .destructive) {
+                        onDelete?(build)
+                    }
+                }
+                .tag(build.id)
         }
     }
 }

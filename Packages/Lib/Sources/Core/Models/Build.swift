@@ -31,7 +31,7 @@ public enum BuildStatus: String, Codable, Sendable, Hashable, QueryBindable {
 }
 
 @Table("builds")
-public struct BuildModel: Identifiable, Sendable {
+public struct BuildModel: Identifiable, Sendable, Hashable {
     public var id: UUID
 
     @Column("scheme_id")

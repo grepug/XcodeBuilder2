@@ -83,6 +83,8 @@ public actor XcodeBuildJob: Sendable {
         try await cleanup()
         
         continuation.yield(.init(progress: 1, message: "Build completed successfully.", isFinished: true))
+        
+        continuation.finish()
     }
 }
 
