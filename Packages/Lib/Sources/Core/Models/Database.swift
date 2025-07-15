@@ -83,6 +83,22 @@ extension DatabaseWriter where Self == DatabaseQueue {
             )
             .execute(db)
         }
+
+        migrator.registerMigration("Create build logs") { db in
+            try #sql(
+                """
+                CREATE TABLE "buildLogs" (
+                    "id" TEXT PRIMARY KEY NOT NULL,
+                    "build_id" TEXT NOT NULL,
+                    "level" TEXT NOT NULL,
+                    "log_content" TEXT NOT NULL,
+                    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY("build_id") REFERENCES "builds"(id) ON DELETE CASCADE
+                )
+                """
+            )
+            .execute(db)
+        }
         
         try! migrator.migrate(databaseQueue)
         
