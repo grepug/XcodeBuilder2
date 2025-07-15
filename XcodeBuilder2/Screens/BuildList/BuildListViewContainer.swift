@@ -49,6 +49,7 @@ struct BuildListViewContainer: View {
                 entryVM.buildSelection = buildIds.first
             }
         }
+        .navigationTitle(Text(project?.displayName ?? "Loading..."))
     }
 }
 

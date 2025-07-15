@@ -94,7 +94,7 @@ public actor XcodeBuildJob: Sendable {
         📋 Build Configuration:
            • Project: \(payload.project.name)
            • Scheme: \(payload.scheme.name)
-           • Version: \(payload.version.tagName)
+           • Version: \(payload.version.displayString)
            • Platforms: \(payload.scheme.platforms.map(\.rawValue).joined(separator: ", "))
            • Export Options: \(payload.exportOptions.map(\.rawValue).joined(separator: ", "))
         """, .clone, at: .info)
@@ -170,7 +170,7 @@ private extension XcodeBuildJob {
         log("""
         📂 CLONE STAGE: Starting repository clone
            • Repository URL: \(payload.project.gitRepoURL)
-           • Target Tag: \(payload.version.tagName)
+           • Target Tag: \(payload.version.displayString)
            • Clone Path: \(projectURL.path())
         """, .clone, at: .info)
         
@@ -195,7 +195,7 @@ private extension XcodeBuildJob {
             )
             
             log("""
-            ✅ Project versions updated to \(payload.version.tagName)
+            ✅ Project versions updated to \(payload.version.displayString)
             📂 CLONE STAGE: Completed successfully
             """, .clone, at: .info)
         } catch {

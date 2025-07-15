@@ -76,6 +76,7 @@ struct BuildEditorContainer: View {
         buildModel.schemeId = scheme.id
         buildModel.versionString = version.version
         buildModel.buildNumber = version.buildNumber
+        buildModel.commitHash = version.commitHash
         
         do {
             try await buildManager.createJob(

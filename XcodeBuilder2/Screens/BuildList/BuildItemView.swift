@@ -68,7 +68,7 @@ struct BuildItemView: View {
                     }
                 }
                 
-                Text(build.version.tagName)
+                Text(build.version.displayString)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

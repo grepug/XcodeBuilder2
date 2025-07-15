@@ -19,7 +19,7 @@ struct XcodeBuildPathManagerLive: XcodeBuildPathManager {
     func rootURL(for project: Project, version: Version) -> URL {
         rootURL
             .appending(path: project.name)
-            .appending(path: version.tagName)
+            .appending(path: version.displayString)
     }
 
     func projectURL(for project: Project, version: Version) -> URL {
@@ -41,13 +41,13 @@ struct XcodeBuildPathManagerLive: XcodeBuildPathManager {
     func archiveURL(for project: Project, version: Version) -> URL {
         rootURL(for: project, version: version)
             .appending(path: "Archives")
-            .appending(path: "\(version.tagName).xcarchive")
+            .appending(path: "\(version.displayString).xcarchive")
     }
 
     func exportURL(for project: Project, version: Version) -> URL? {
         rootURL(for: project, version: version)
             .appending(path: "Exports")
-            .appending(path: "\(version.tagName)")
+            .appending(path: "\(version.displayString)")
     }
 }
 

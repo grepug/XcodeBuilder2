@@ -12,8 +12,12 @@ public struct Version: Sendable, Hashable, Codable, Comparable {
     public let buildNumber: Int
     public let commitHash: String
 
+    public var displayString: String {
+        "\(tagName)_\(commitHash.prefix(6))"
+    }
+    
     public var tagName: String {
-        "v\(version)_\(buildNumber)_\(commitHash.prefix(6))"
+        "v\(version)_\(buildNumber)"
     }
     
     public init(version: String, buildNumber: Int, commitHash: String = "") {

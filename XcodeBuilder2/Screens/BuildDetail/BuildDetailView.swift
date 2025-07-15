@@ -115,7 +115,7 @@ struct BuildDetailView: View {
                 CompactInfoRow(label: "Status", value: build.status.title)
                 CompactInfoRow(label: "Version", value: build.versionString)
                 CompactInfoRow(label: "Build Number", value: String(build.buildNumber))
-                CompactInfoRow(label: "Full Version", value: build.version.tagName)
+                CompactInfoRow(label: "Full Version", value: build.version.displayString)
             }
         }
     }
