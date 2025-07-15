@@ -110,12 +110,12 @@ struct BuildDetailView: View {
                 .font(.headline)
             
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .leading), count: 2), spacing: 12) {
-                CompactInfoRow(label: "Build ID", value: String(build.id.uuidString.prefix(8)))
+                CompactInfoRow(label: "Build ID", value: String(build.id.uuidString))
                 CompactInfoRow(label: "Scheme", value: schemeName)
                 CompactInfoRow(label: "Status", value: build.status.title)
                 CompactInfoRow(label: "Version", value: build.versionString)
                 CompactInfoRow(label: "Build Number", value: String(build.buildNumber))
-                CompactInfoRow(label: "Full Version", value: "\(build.versionString) (\(build.buildNumber))")
+                CompactInfoRow(label: "Full Version", value: build.version.tagName)
             }
         }
     }

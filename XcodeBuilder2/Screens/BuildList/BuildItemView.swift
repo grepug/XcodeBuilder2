@@ -68,7 +68,7 @@ struct BuildItemView: View {
                     }
                 }
                 
-                Text("\(build.versionString) (\(build.buildNumber))")
+                Text(build.version.tagName)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

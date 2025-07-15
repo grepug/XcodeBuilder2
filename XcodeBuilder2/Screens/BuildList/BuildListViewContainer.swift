@@ -39,6 +39,7 @@ struct BuildListViewContainer: View {
             try! await $buildIds.wrappedValue.load(
                 BuildModel
                     .where { $0.schemeId.in(schemes.map(\.id)) }
+                    .order { $0.createdAt.desc() }
                     .select(\.id),
                 animation: .default,
             )

@@ -119,6 +119,8 @@ struct BuildEditor: View {
             Button("Start Build") {
                 action?()
             }
+            .buttonStyle(.borderedProminent)
+            .keyboardShortcut(.defaultAction)
             .disabled(disabled)
         }
         .padding()
