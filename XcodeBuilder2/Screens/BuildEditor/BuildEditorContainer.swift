@@ -22,9 +22,12 @@ struct BuildEditorContainer: View {
     @State private var versions: [Version] = []
     @State private var branches: [GitBranch] = []
     @State private var versionSelection: Version?
+    @State private var version: Version = .init()
     @State private var branchSelection: GitBranch?
     @State private var showingError: LocalizedError?
     @State private var selectedTab: Tab = .branch
+    
+    @State private var errorMessage: String?
     
     @Fetch var fetchedValue: ProjectDetailRequest.Result?
     
@@ -40,7 +43,7 @@ struct BuildEditorContainer: View {
     }
 
     var loading: Bool {
-        versions.isEmpty
+        versions.isEmpty || branches.isEmpty
     }
     
     var body: some View {
@@ -49,10 +52,12 @@ struct BuildEditorContainer: View {
             schemes: schemes,
             build: $buildModel,
             versions: versions,
+            version: $version,
             branches: branches,
             versionSelection: $versionSelection,
             branchSelection: $branchSelection,
-            tabSelection: $selectedTab
+            tabSelection: $selectedTab,
+            errorMessage: errorMessage,
         ) {
             Task {
                 await handleStartBuild()
@@ -61,13 +66,32 @@ struct BuildEditorContainer: View {
         .opacity(loading ? 0 : 1)
         .overlay {
             if loading {
-                ProgressView("Loading versions...")
+                ProgressView("Loading...")
             }
         }
         .task(id: project) {
             if !project.bundleIdentifier.isEmpty {
-                versions = try! await GitCommand.fetchVersions(remoteURL: project.gitRepoURL)
-                branches = try! await GitCommand.fetchBranches(remoteURL: project.gitRepoURL)
+                async let a = try! GitCommand.fetchVersions(remoteURL: project.gitRepoURL)
+                async let b = try! GitCommand.fetchBranches(remoteURL: project.gitRepoURL)
+                
+                (versions, branches) = await (a, b)
+                
+                let maxVersion = versions.max() ?? .init()
+                version.version = maxVersion.version
+                version.buildNumber = maxVersion.buildNumber + 1
+            }
+        }
+        .onChange(of: branchSelection) { _, newValue in
+            if let newValue {
+                version.commitHash = newValue.commitHash
+            }
+        }
+        .onChange(of: version) { _, newValue in
+            do {
+                try newValue.validate()
+                errorMessage = nil
+            } catch {
+                errorMessage = error.localizedDescription
             }
         }
         .task(id: projectId) {
@@ -80,22 +104,18 @@ struct BuildEditorContainer: View {
         let version: Version
         
         if selectedTab == .version {
-            guard let versionSelection = versionSelection else {
-                return
-            }
-            version = versionSelection
+            assert(versionSelection != nil, "Version selection should not be nil")
+            version = versionSelection!
         } else {
-            guard let branchSelection else {
-                return
-            }
-            
-            // Create a version object from branch selection
-            version = Version(
-                version: branchSelection.name,
-                buildNumber: Int(Date().timeIntervalSince1970),
-                commitHash: branchSelection.commitHash,
-                branchName: branchSelection.name
-            )
+            assert(branchSelection != nil, "Branch selection should not be nil")
+            version = self.version
+        }
+        
+        do {
+            try version.validate()
+        } catch {
+            errorMessage = error.localizedDescription
+            return
         }
         
         guard let scheme = schemes.first(where: { $0.id == buildModel.schemeId }) else {
@@ -107,12 +127,19 @@ struct BuildEditorContainer: View {
         buildModel.buildNumber = version.buildNumber
         buildModel.commitHash = version.commitHash
         
+        let gitCloneKind: XcodeBuildPayload.GitCloneKind = if selectedTab == .branch {
+            .branch(branchSelection!.name)
+        } else {
+            .tag
+        }
+        
         do {
             try await buildManager.createJob(
                 payload: .init(
                     project: project,
                     scheme: scheme,
                     version: version,
+                    gitCloneKind: gitCloneKind,
                     exportOptions: buildModel.exportOptions,
                     buildId: buildModel.id,
                 ),

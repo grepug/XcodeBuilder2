@@ -11,16 +11,23 @@ private extension DateFormatter {
 }
 
 public struct XcodeBuildPayload {
+    public enum GitCloneKind {
+        case tag
+        case branch(String)
+    }
+    
     let project: Project
     let scheme: Scheme
     let version: Version
+    let gitCloneKind: GitCloneKind
     let exportOptions: [ExportOption]
     let buildId: UUID
 
-    public init(project: Project, scheme: Scheme, version: Version, exportOptions: [ExportOption], buildId: UUID) {
+    public init(project: Project, scheme: Scheme, version: Version, gitCloneKind: GitCloneKind, exportOptions: [ExportOption], buildId: UUID) {
         self.project = project
         self.scheme = scheme
         self.version = version
+        self.gitCloneKind = gitCloneKind
         self.exportOptions = exportOptions
         self.buildId = buildId
     }
@@ -62,13 +69,23 @@ public actor XcodeBuildJob: Sendable {
         
         let task = Task {
             do {
-                try await self.build(continuation: continuation)
+                try await self.build {
+                    continuation.yield($0)
+                }
+                
+                try Task.checkCancellation()
+                
+                continuation.finish()
             } catch {
-                log("""
+                if error is CancellationError {
+                    log("🚫 BUILD CANCELLED", .cleanup, at: .warning)
+                } else {
+                    log("""
                 ❌ BUILD FAILED
                    • Error: \(error.localizedDescription)
                    • Error Type: \(type(of: error))
                 """, .cleanup, at: .error)
+                }
 
                 try await self.cleanup()
 
@@ -88,7 +105,7 @@ public actor XcodeBuildJob: Sendable {
         return stream
     }
     
-    func build(continuation: Stream.Continuation) async throws {
+    func build(yield: @escaping (XcodeBuildProgress) -> Void) async throws {
         log("""
         🚀 BUILD STARTED
         📋 Build Configuration:
@@ -99,25 +116,27 @@ public actor XcodeBuildJob: Sendable {
            • Export Options: \(payload.exportOptions.map(\.rawValue).joined(separator: ", "))
         """, .clone, at: .info)
         
-        continuation.yield(.init(progress: 0.05, message: "🚀 Build started - Initializing..."))
+        yield(.init(progress: 0.05, message: "🚀 Build started - Initializing..."))
         
         try await cloneRepository()
-        continuation.yield(.init(progress: 0.20, message: "📦 Repository cloned successfully"))
+        try Task.checkCancellation()
+        yield(.init(progress: 0.20, message: "📦 Repository cloned successfully"))
         
         try await resolvePackageDependencies()
-        continuation.yield(.init(progress: 0.35, message: "🔗 Package dependencies resolved"))
+        try Task.checkCancellation()
+        yield(.init(progress: 0.35, message: "🔗 Package dependencies resolved"))
         
-        continuation.yield(.init(progress: 0.40, message: "🔨 Starting archive process..."))
+        yield(.init(progress: 0.40, message: "🔨 Starting archive process..."))
         try await archiveProject()
-        continuation.yield(.init(progress: 0.90, message: "📁 Project archived successfully"))
+        try Task.checkCancellation()
+        yield(.init(progress: 0.90, message: "📁 Project archived successfully"))
 
         try await cleanup()
-        continuation.yield(.init(progress: 0.95, message: "🧹 Cleanup completed"))
+        try Task.checkCancellation()
+        yield(.init(progress: 0.95, message: "🧹 Cleanup completed"))
         
         log("✅ BUILD COMPLETED SUCCESSFULLY", .cleanup, at: .info)
-        continuation.yield(.init(progress: 1.0, message: "✅ Build completed successfully!", isFinished: true))
-        
-        continuation.finish()
+        yield(.init(progress: 1.0, message: "✅ Build completed successfully!", isFinished: true))
     }
 }
 
@@ -176,14 +195,25 @@ private extension XcodeBuildJob {
         
         do {
             let gitCommand = GitCommand(pathURL: projectURL)
-            
-            log("🔧 DEBUG: Git clone command initialized", .clone, at: .debug)
-            
-            try await gitCommand.clone(
-                remoteURL: payload.project.gitRepoURL,
-                tag: payload.version.tagName,
-            )
-            
+
+            switch payload.gitCloneKind {
+            case .tag:
+                log("🔧 DEBUG: Cloning tag \(payload.version.tagName)", .clone, at: .debug)
+                
+                try await gitCommand.clone(
+                    remoteURL: payload.project.gitRepoURL,
+                    tag: payload.version.tagName,
+                )
+            case .branch(let branchName):
+                log("🔧 DEBUG: Cloning branch \(branchName)", .clone, at: .debug)
+
+                try await gitCommand.cloneTagAndPush(
+                    version: payload.version, 
+                    on: branchName, 
+                    from: payload.project.gitRepoURL
+                )
+            }
+
             log("✅ Repository cloned successfully", .clone, at: .info)
             
             log("🔄 Updating project versions...", .clone, at: .info)
@@ -296,6 +326,8 @@ private extension XcodeBuildJob {
                         for try await output in await runShellCommand2(command.string) {
                             await self.log("📊 Archive output: \(output)", .archive, at: .debug)
                         }
+                        
+                        try Task.checkCancellation()
 
                         await self.log("✅ Archive completed for platform: \(command.platform.rawValue)", .archive, at: .info)
 
@@ -305,16 +337,21 @@ private extension XcodeBuildJob {
                 
                 try await group.waitForAll()
             }
-
+            
             log("""
             ✅ All platforms archived successfully
             📁 ARCHIVE STAGE: Completed successfully
             """, .archive, at: .info)
         } catch {
-            log("""
+            if error is CancellationError {
+                log("🚫 ARCHIVE STAGE: Archive process was cancelled", .archive, at: .warning)
+            } else {
+                log("""
             ❌ ARCHIVE STAGE: Failed to archive project
                • Error: \(error.localizedDescription)
             """, .archive, at: .error)
+            }
+            
             throw error
         }
     }

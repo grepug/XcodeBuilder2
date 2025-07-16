@@ -14,10 +14,12 @@ struct BuildEditor: View {
     var schemes: [Scheme]
     @Binding var build: BuildModel
     var versions: [Version]
+    @Binding var version: Version
     var branches: [GitBranch]
     @Binding var versionSelection: Version?
     @Binding var branchSelection: GitBranch?
     @Binding var tabSelection: BuildEditorContainer.Tab
+    var errorMessage: String? = nil
     
     @Dependency(\.xcodeBuildPathManager) var pathManager
     
@@ -34,7 +36,7 @@ struct BuildEditor: View {
     var disabled: Bool {
         let hasValidSelection = (tabSelection == .version && versionSelection != nil) || 
                                (tabSelection == .branch && branchSelection != nil)
-        return !hasValidSelection || build.exportOptions.isEmpty
+        return !hasValidSelection || build.exportOptions.isEmpty || errorMessage != nil
     }
     
     var sortedVersions: [Version] {
@@ -71,7 +73,7 @@ struct BuildEditor: View {
         Form {
             Section {
                 // Segment picker for Branch/Version selection
-                Picker("Selection Mode", selection: $tabSelection) {
+                Picker("Selection Mode:", selection: $tabSelection) {
                     ForEach(BuildEditorContainer.Tab.allCases, id: \.self) { tab in
                         Text(tab.rawValue)
                             .tag(tab)
@@ -97,6 +99,10 @@ struct BuildEditor: View {
                             branchSelection = newValue.first
                         }
                     }
+                    
+                    TextField("Version:", text: $version.version)
+                    TextField("Build Number:", value: $version.buildNumber, format: .number)
+                    LabeledContent("Commit Hash:", value: version.commitHash.prefix(6))
                 } else {
                     Picker("Version:", selection: $versionSelection) {
                         ForEach(sortedVersions, id: \.self) { item in
@@ -152,6 +158,12 @@ struct BuildEditor: View {
             Divider()
                 .padding(.vertical)
             
+            if let errorMessage {
+                Section {
+                    LabeledContent("Error:", value: errorMessage)
+                }
+            }
+            
             Button("Start Build") {
                 action?()
             }
@@ -190,6 +202,7 @@ struct BuildEditor: View {
             .init(version: "1.1.0", buildNumber: 1),
             .init(version: "1.2.0", buildNumber: 2),
         ],
+        version: .constant(.init()),
         branches: [
             .init(name: "main", commitHash: "abc123"),
             .init(name: "develop", commitHash: "def456"),

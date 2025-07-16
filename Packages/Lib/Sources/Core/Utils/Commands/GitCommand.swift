@@ -21,17 +21,30 @@ public struct GitCommand {
         try await runShellCommand2(command).get()
     }
 
+    enum Error: LocalizedError {
+        case tagExists(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .tagExists(let tagName):
+                return "Tag \(tagName) already exists."
+            }
+        }
+    }
+
     func cloneTagAndPush(version: Version, on branch: String, from remoteURL: URL) async throws {
         // check if the version.commitHash is already tagged
         let existingTags = try await GitCommand.fetchVersions(remoteURL: remoteURL)
         if existingTags.contains(where: { $0.tagName == version.tagName }) {
             print("Tag \(version.tagName) already exists, skipping creation.")
-            return
+            throw Error.tagExists(version.tagName)
         }
-
+        
+        let path = pathURL.path()
+        
         let command = """
-        cd \(pathURL.path()) && \
-        git clone \(remoteURL.absoluteString) --depth 1 . && \
+        git clone \(remoteURL.absoluteString) \(path) --branch \(branch) --depth 1 && \
+        cd \(path) && \
         git tag -a \(version.tagName) -m "\(version.displayString)" && \
         git push origin \(version.tagName)
         """
