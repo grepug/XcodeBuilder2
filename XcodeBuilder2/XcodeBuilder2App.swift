@@ -12,9 +12,10 @@ import Core
 @main
 struct XcodeBuilder2App: App {
     init() {
-        let path = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("XcodeBuilder2")
-            .appendingPathComponent("db.sqlite")
-            .path()
+        let path = ensuredURL(
+            FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent("XcodeBuilder2")
+                .appendingPathComponent("db.sqlite")
+        ).path()
         
         setupCacheDatabase(path: .stored(path: path))
     }

@@ -8,7 +8,7 @@
 
 import Foundation
 
-func ensuredURL(_ url: URL) -> URL {
+public func ensuredURL(_ url: URL) -> URL {
     var url = url
     let lastComponent = url.lastPathComponent
     let isDeletedLastComponent = !url.pathExtension.isEmpty
@@ -28,7 +28,7 @@ func ensuredURL(_ url: URL) -> URL {
     return url
 }
 
-func ensuredPath(_ path: String) -> String {
+public func ensuredPath(_ path: String) -> String {
     let url = URL(filePath: path)
     return ensuredURL(url).path()
 }

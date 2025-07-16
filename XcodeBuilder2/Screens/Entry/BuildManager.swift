@@ -142,7 +142,7 @@ class BuildManager {
             do {
                 try FileManager.default.removeItem(at: pathURL)
             } catch {
-                print("faile to remove", error)
+                print("failed to remove", error)
             }
             
             try! await db.write { db in
