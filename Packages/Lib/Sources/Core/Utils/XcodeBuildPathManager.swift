@@ -2,12 +2,12 @@ import Foundation
 import Dependencies
 
 public protocol XcodeBuildPathManager: Sendable {
-    func rootURL(for project: Project, version: Version) -> URL
-    func projectURL(for project: Project, version: Version) -> URL
-    func xcodeprojURL(for project: Project, version: Version) -> URL
-    func derivedDataURL(for project: Project, version: Version) -> URL
-    func archiveURL(for project: Project, version: Version) -> URL
-    func exportURL(for project: Project, version: Version) -> URL?
+    func rootURL(for project: Project, build: BuildModel) -> URL
+    func projectURL(for project: Project, build: BuildModel) -> URL
+    func xcodeprojURL(for project: Project, build: BuildModel) -> URL
+    func derivedDataURL(for project: Project, build: BuildModel) -> URL
+    func archiveURL(for project: Project, build: BuildModel) -> URL
+    func exportURL(for project: Project, build: BuildModel) -> URL?
 }
 
 struct XcodeBuildPathManagerLive: XcodeBuildPathManager {
@@ -17,38 +17,38 @@ struct XcodeBuildPathManagerLive: XcodeBuildPathManager {
         .appending(path: "xcode-builder")
     }
 
-    func rootURL(for project: Project, version: Version) -> URL {
+    func rootURL(for project: Project, build: BuildModel) -> URL {
         rootURL
             .appending(path: project.name)
-            .appending(path: version.displayString)
+            .appending(path: build.projectDirName)
     }
 
-    func projectURL(for project: Project, version: Version) -> URL {
-        rootURL(for: project, version: version)
+    func projectURL(for project: Project, build: BuildModel) -> URL {
+        rootURL(for: project, build: build)
             .appending(path: "Project")
     }
 
-    func xcodeprojURL(for project: Project, version: Version) -> URL {
-        URL(filePath: projectURL(for: project, version: version).path())
+    func xcodeprojURL(for project: Project, build: BuildModel) -> URL {
+        URL(filePath: projectURL(for: project, build: build).path())
             .appending(path: project.xcodeprojName)
             .appendingPathExtension("xcodeproj")
     }
 
-    func derivedDataURL(for project: Project, version: Version) -> URL {
-        rootURL(for: project, version: version)
+    func derivedDataURL(for project: Project, build: BuildModel) -> URL {
+        rootURL(for: project, build: build)
             .appending(path: "DerivedData")
     }
 
-    func archiveURL(for project: Project, version: Version) -> URL {
-        rootURL(for: project, version: version)
+    func archiveURL(for project: Project, build: BuildModel) -> URL {
+        rootURL(for: project, build: build)
             .appending(path: "Archives")
-            .appending(path: "\(version.displayString).xcarchive")
+            .appending(path: "\(build.version.displayString).xcarchive")
     }
 
-    func exportURL(for project: Project, version: Version) -> URL? {
-        rootURL(for: project, version: version)
+    func exportURL(for project: Project, build: BuildModel) -> URL? {
+        rootURL(for: project, build: build)
             .appending(path: "Exports")
-            .appending(path: "\(version.displayString)")
+            .appending(path: "\(build.version.displayString)")
     }
 }
 

@@ -43,32 +43,6 @@ struct BuildEditor: View {
         versions.sorted().reversed()
     }
     
-    var xcodeBuildCommandString: String? {
-        guard let scheme = schemes.first(where: { $0.id == build.schemeId }) else {
-            return nil
-        }
-        
-        guard let version = versionSelection else {
-            return nil
-        }
-        
-        guard let platform = scheme.platforms.first else {
-            return nil
-        }
-        
-        return XcodeBuildCommand(
-            kind: .archive,
-            scheme: scheme,
-            version: version,
-            platform: platform,
-            exportOption: nil,
-            projectURL: pathManager.xcodeprojURL(for: project, version: version),
-            archiveURL: pathManager.archiveURL(for: project, version: version),
-            derivedDataURL: pathManager.derivedDataURL(for: project, version: version),
-            exportURL: nil
-        ).string
-    }
-    
     var body: some View {
         Form {
             Section {

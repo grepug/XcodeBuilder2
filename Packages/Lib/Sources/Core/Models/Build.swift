@@ -61,6 +61,10 @@ public struct BuildModel: Identifiable, Sendable, Hashable {
 
     @Column("export_options", as: [ExportOption].JSONRepresentation.self)
     public var exportOptions: [ExportOption]
+    
+    var projectDirName: String {
+        "\(version.displayString)_\(id.uuidString.lowercased().prefix(6))"
+    }
 
     public var version: Version {
         get {

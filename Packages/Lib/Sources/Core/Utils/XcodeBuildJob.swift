@@ -160,23 +160,23 @@ private struct ProgressTracker {
 
 private extension XcodeBuildJob {
     var projectURL: URL {
-        ensuredURL(pathManager.projectURL(for: payload.project, version: payload.version))
+        ensuredURL(pathManager.projectURL(for: payload.project, build: payload.build))
     }
     
     var xcodeprojURL: URL {
-        ensuredURL(pathManager.xcodeprojURL(for: payload.project, version: payload.version))
+        ensuredURL(pathManager.xcodeprojURL(for: payload.project, build: payload.build))
     }
     
     var archiveURL: URL {
-        ensuredURL(pathManager.archiveURL(for: payload.project, version: payload.version))
+        ensuredURL(pathManager.archiveURL(for: payload.project, build: payload.build))
     }
     
     var derivedDataURL: URL {
-        ensuredURL(pathManager.derivedDataURL(for: payload.project, version: payload.version))
+        ensuredURL(pathManager.derivedDataURL(for: payload.project, build: payload.build))
     }
     
     var exportURL: URL? {
-        pathManager.exportURL(for: payload.project, version: payload.version)
+        pathManager.exportURL(for: payload.project, build: payload.build)
             .map { ensuredURL($0) }
     }
     
