@@ -36,8 +36,10 @@ struct BuildItemViewContainer: View {
                 })
             }
             
-            Button("Delete", role: .destructive) {
-                buildManager.deleteBuild(id: id)
+            if let build, let scheme {
+                Button("Delete", role: .destructive) {
+                    buildManager.deleteBuild(build, scheme: scheme)
+                }
             }
         }
     }
