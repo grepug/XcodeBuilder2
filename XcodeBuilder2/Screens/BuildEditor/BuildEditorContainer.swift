@@ -13,10 +13,18 @@ struct BuildEditorContainer: View {
     var projectId: String
     var dismiss: (() -> Void)?
     
+    enum Tab: String, CaseIterable {
+        case branch = "Branch"
+        case version = "Version"
+    }
+    
     @State private var buildModel = BuildModel(exportOptions: [.appStore])
     @State private var versions: [Version] = []
+    @State private var branches: [GitBranch] = []
     @State private var versionSelection: Version?
+    @State private var branchSelection: GitBranch?
     @State private var showingError: LocalizedError?
+    @State private var selectedTab: Tab = .branch
     
     @Fetch var fetchedValue: ProjectDetailRequest.Result?
     
@@ -41,7 +49,10 @@ struct BuildEditorContainer: View {
             schemes: schemes,
             build: $buildModel,
             versions: versions,
+            branches: branches,
             versionSelection: $versionSelection,
+            branchSelection: $branchSelection,
+            tabSelection: $selectedTab
         ) {
             Task {
                 await handleStartBuild()
@@ -56,6 +67,7 @@ struct BuildEditorContainer: View {
         .task(id: project) {
             if !project.bundleIdentifier.isEmpty {
                 versions = try! await GitCommand.fetchVersions(remoteURL: project.gitRepoURL)
+                branches = try! await GitCommand.fetchBranches(remoteURL: project.gitRepoURL)
             }
         }
         .task(id: projectId) {
@@ -65,8 +77,25 @@ struct BuildEditorContainer: View {
     }
     
     func handleStartBuild() async {
-        guard let version = versionSelection else {
-            return
+        let version: Version
+        
+        if selectedTab == .version {
+            guard let versionSelection = versionSelection else {
+                return
+            }
+            version = versionSelection
+        } else {
+            guard let branchSelection else {
+                return
+            }
+            
+            // Create a version object from branch selection
+            version = Version(
+                version: branchSelection.name,
+                buildNumber: Int(Date().timeIntervalSince1970),
+                commitHash: branchSelection.commitHash,
+                branchName: branchSelection.name
+            )
         }
         
         guard let scheme = schemes.first(where: { $0.id == buildModel.schemeId }) else {

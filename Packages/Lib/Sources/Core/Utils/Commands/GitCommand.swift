@@ -20,6 +20,26 @@ public struct GitCommand {
 
         try await runShellCommand2(command).get()
     }
+
+    func cloneTagAndPush(version: Version, on branch: String, from remoteURL: URL) async throws {
+        // check if the version.commitHash is already tagged
+        let existingTags = try await GitCommand.fetchVersions(remoteURL: remoteURL)
+        if existingTags.contains(where: { $0.tagName == version.tagName }) {
+            print("Tag \(version.tagName) already exists, skipping creation.")
+            return
+        }
+
+        let command = """
+        cd \(pathURL.path()) && \
+        git clone \(remoteURL.absoluteString) --depth 1 . && \
+        git tag -a \(version.tagName) -m "\(version.displayString)" && \
+        git push origin \(version.tagName)
+        """
+
+        print("git tag command:", command)
+
+        try await runShellCommand2(command).get()
+    }
     
     public static func fetchVersions(remoteURL: URL) async throws -> [Version] {
         let command = "git ls-remote --tags \(remoteURL.absoluteString)"
@@ -58,23 +78,35 @@ public struct GitCommand {
         return versions
     }
 
-    public static func fetchBranches(remoteURL: URL) async throws -> [String] {
+    public static func fetchBranches(remoteURL: URL) async throws -> [GitBranch] {
         let command = "git ls-remote --heads \(remoteURL.absoluteString)"
         let res = try await runShellCommandComplete(command).combinedOutput
         let lines = res.split(separator: "\n")
-        
-        var branches: [String] = []
-        
+
+        var branches: [GitBranch] = []
+
         for line in lines {
             let parts = line.split(separator: "\t")
             guard parts.count > 1 else { continue }
 
             let branchName = String(parts[1].split(separator: "/").last ?? "")
+            let commitHash = String(parts[0])
+            let branch = GitBranch(name: branchName, commitHash: commitHash)
 
-            branches.append(branchName)
+            branches.append(branch)
         }
 
-        return branches.sorted()
+        return branches.sorted { $0.name < $1.name }
+    }
+}
+
+public struct GitBranch: Sendable, Hashable {
+    public let name: String
+    public let commitHash: String
+    
+    public init(name: String, commitHash: String) {
+        self.name = name
+        self.commitHash = commitHash
     }
 }
 

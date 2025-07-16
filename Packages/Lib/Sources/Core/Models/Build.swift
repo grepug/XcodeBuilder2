@@ -64,12 +64,13 @@ public struct BuildModel: Identifiable, Sendable, Hashable {
 
     public var version: Version {
         get {
-            Version(version: versionString, buildNumber: buildNumber)
+            Version(version: versionString, buildNumber: buildNumber, commitHash: commitHash)
         }
         
         set {
             versionString = newValue.version
             buildNumber = newValue.buildNumber
+            commitHash = newValue.commitHash
         }
     }
 

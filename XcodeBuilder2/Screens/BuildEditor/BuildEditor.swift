@@ -14,7 +14,10 @@ struct BuildEditor: View {
     var schemes: [Scheme]
     @Binding var build: BuildModel
     var versions: [Version]
+    var branches: [GitBranch]
     @Binding var versionSelection: Version?
+    @Binding var branchSelection: GitBranch?
+    @Binding var tabSelection: BuildEditorContainer.Tab
     
     @Dependency(\.xcodeBuildPathManager) var pathManager
     
@@ -29,7 +32,9 @@ struct BuildEditor: View {
     }
     
     var disabled: Bool {
-        xcodeBuildCommandString == nil || build.exportOptions.isEmpty
+        let hasValidSelection = (tabSelection == .version && versionSelection != nil) || 
+                               (tabSelection == .branch && branchSelection != nil)
+        return !hasValidSelection || build.exportOptions.isEmpty
     }
     
     var sortedVersions: [Version] {
@@ -65,18 +70,49 @@ struct BuildEditor: View {
     var body: some View {
         Form {
             Section {
-                Picker("Version:", selection: $versionSelection) {
-                    ForEach(sortedVersions, id: \.self) { item in
-                        Text(item.displayString)
-                            .tag(item)
+                // Segment picker for Branch/Version selection
+                Picker("Selection Mode", selection: $tabSelection) {
+                    ForEach(BuildEditorContainer.Tab.allCases, id: \.self) { tab in
+                        Text(tab.rawValue)
+                            .tag(tab)
                     }
-                    
-                    Text("Select Version")
-                        .tag(nil as Version?)
                 }
-                .pickerStyle(.menu)
-                .onChange(of: sortedVersions, initial: true) { oldValue, newValue in
-                    versionSelection = newValue.first
+                .pickerStyle(.segmented)
+                .padding(.bottom, 8)
+                
+                // Branch or Version picker based on selection
+                if tabSelection == .branch {
+                    Picker("Branch:", selection: $branchSelection) {
+                        ForEach(branches, id: \.name) { branch in
+                            Text("\(branch.name) (\(String(branch.commitHash.prefix(8))))")
+                                .tag(branch as GitBranch?)
+                        }
+                        
+                        Text("Select Branch")
+                            .tag(nil as GitBranch?)
+                    }
+                    .pickerStyle(.menu)
+                    .onChange(of: branches, initial: true) { oldValue, newValue in
+                        if branchSelection == nil {
+                            branchSelection = newValue.first
+                        }
+                    }
+                } else {
+                    Picker("Version:", selection: $versionSelection) {
+                        ForEach(sortedVersions, id: \.self) { item in
+                            Text(item.displayString)
+                                .tag(item)
+                        }
+                        
+                        Text("Select Version")
+                            .tag(nil as Version?)
+                    }
+                    .pickerStyle(.menu)
+                    .onChange(of: sortedVersions, initial: true) { oldValue, newValue in
+                        if versionSelection == nil {
+                            versionSelection = newValue.first
+                        }
+                    }
                 }
                 
                 Picker("Scheme:", selection: $build.schemeId) {
@@ -141,6 +177,10 @@ struct BuildEditor: View {
     
     @Previewable @State var versionSelection: Version?
     
+    @Previewable @State var branchSelection: GitBranch?
+    
+    @Previewable @State var tabSelection: BuildEditorContainer.Tab = .version
+    
     BuildEditor(
         project: project,
         schemes: schemes,
@@ -150,7 +190,13 @@ struct BuildEditor: View {
             .init(version: "1.1.0", buildNumber: 1),
             .init(version: "1.2.0", buildNumber: 2),
         ],
+        branches: [
+            .init(name: "main", commitHash: "abc123"),
+            .init(name: "develop", commitHash: "def456"),
+        ],
         versionSelection: $versionSelection,
+        branchSelection: $branchSelection,
+        tabSelection: $tabSelection
     )
     .frame(width: 500, height: 400)
 }

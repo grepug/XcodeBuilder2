@@ -11,19 +11,25 @@ public struct Version: Sendable, Hashable, Codable, Comparable {
     public let version: String
     public let buildNumber: Int
     public let commitHash: String
+    public let branchName: String?
 
     public var displayString: String {
-        "\(tagName)_\(commitHash.prefix(6))"
+        if let branchName = branchName {
+            return "\(branchName)_\(commitHash.prefix(6))"
+        } else {
+            return "\(tagName)_\(commitHash.prefix(6))"
+        }
     }
     
     public var tagName: String {
         "v\(version)_\(buildNumber)"
     }
     
-    public init(version: String, buildNumber: Int, commitHash: String = "") {
+    public init(version: String, buildNumber: Int, commitHash: String = "", branchName: String? = nil) {
         self.version = version
         self.buildNumber = buildNumber
         self.commitHash = commitHash
+        self.branchName = branchName
     }
 }
 
