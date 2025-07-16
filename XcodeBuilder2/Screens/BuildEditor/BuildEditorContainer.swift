@@ -27,6 +27,8 @@ struct BuildEditorContainer: View {
     @State private var showingError: LocalizedError?
     @State private var selectedTab: Tab = .branch
     
+    @Shared(.appStorage("saved_branch_name")) private var savedBranchName: String?
+    
     @State private var errorMessage: String?
     
     @Fetch var fetchedValue: ProjectDetailRequest.Result?
@@ -79,11 +81,13 @@ struct BuildEditorContainer: View {
                 let maxVersion = versions.max() ?? .init()
                 version.version = maxVersion.version
                 version.buildNumber = maxVersion.buildNumber + 1
+                branchSelection = branches.first { $0.name == savedBranchName }
             }
         }
         .onChange(of: branchSelection) { _, newValue in
             if let newValue {
                 version.commitHash = newValue.commitHash
+                $savedBranchName.withLock { $0 = newValue.name }
             }
         }
         .onChange(of: version) { _, newValue in
