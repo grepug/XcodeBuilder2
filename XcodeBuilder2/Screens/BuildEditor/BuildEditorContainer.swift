@@ -127,9 +127,7 @@ struct BuildEditorContainer: View {
         }
         
         buildModel.schemeId = scheme.id
-        buildModel.versionString = version.version
-        buildModel.buildNumber = version.buildNumber
-        buildModel.commitHash = version.commitHash
+        buildModel.version = version
         
         let gitCloneKind: XcodeBuildPayload.GitCloneKind = if selectedTab == .branch {
             .branch(branchSelection!.name)
@@ -142,10 +140,9 @@ struct BuildEditorContainer: View {
                 payload: .init(
                     project: project,
                     scheme: scheme,
-                    version: version,
+                    build: buildModel,
                     gitCloneKind: gitCloneKind,
                     exportOptions: buildModel.exportOptions,
-                    buildId: buildModel.id,
                 ),
                 buildModel: buildModel,
             )

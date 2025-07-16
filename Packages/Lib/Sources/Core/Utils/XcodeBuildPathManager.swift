@@ -2,6 +2,7 @@ import Foundation
 import Dependencies
 
 public protocol XcodeBuildPathManager: Sendable {
+    func rootURL(for project: Project, version: Version) -> URL
     func projectURL(for project: Project, version: Version) -> URL
     func xcodeprojURL(for project: Project, version: Version) -> URL
     func derivedDataURL(for project: Project, version: Version) -> URL

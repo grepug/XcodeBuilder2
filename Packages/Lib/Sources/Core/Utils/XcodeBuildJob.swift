@@ -18,18 +18,24 @@ public struct XcodeBuildPayload {
     
     let project: Project
     let scheme: Scheme
-    let version: Version
     let gitCloneKind: GitCloneKind
     let exportOptions: [ExportOption]
-    let buildId: UUID
+    let build: BuildModel
+    
+    var version: Version {
+        build.version
+    }
+    
+    var buildId: UUID {
+        build.id
+    }
 
-    public init(project: Project, scheme: Scheme, version: Version, gitCloneKind: GitCloneKind, exportOptions: [ExportOption], buildId: UUID) {
+    public init(project: Project, scheme: Scheme, build: BuildModel, gitCloneKind: GitCloneKind, exportOptions: [ExportOption]) {
         self.project = project
         self.scheme = scheme
-        self.version = version
+        self.build = build
         self.gitCloneKind = gitCloneKind
         self.exportOptions = exportOptions
-        self.buildId = buildId
     }
 }
 
