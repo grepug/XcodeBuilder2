@@ -10,46 +10,26 @@ import Core
 import SharingGRDB
 
 struct BuildListViewContainer: View {
-    var id: String
-    
-    @State @FetchOne var project: Project?
-    @State @FetchAll var buildIds: [UUID] = []
-    @State @FetchAll var schemes: [Scheme] = []
+    var projectId: String
+    var versionString: String
     
     @Environment(BuildManager.self) private var buildManager
     @Environment(EntryViewModel.self) private var entryVM
-    
-    init(id: String) {
-        self.id = id
-    }
+    @Environment(ProjectDetailViewModel.self) private var vm
     
     var body: some View {
         @Bindable var entryVM = entryVM
         
         BuildListView(
-            project: project ?? .init(),
-            buildIds: buildIds,
+            project: vm.project ?? .init(),
+            buildIds: vm.buildIds,
             buildSelection: $entryVM.buildSelection,
         )
-        .task(id: id) {
-            try! await $project.wrappedValue.load(Project.where { $0.bundleIdentifier == id }, animation: .default)
-            try! await $schemes.wrappedValue.load(Scheme.where { $0.projectBundleIdentifier == id }, animation: .default)
-        }
-        .task(id: schemes) {
-            try! await $buildIds.wrappedValue.load(
-                BuildModel
-                    .where { $0.schemeId.in(schemes.map(\.id)) }
-                    .order { $0.createdAt.desc() }
-                    .select(\.id),
-                animation: .default,
-            )
-        }
-        .task(id: [buildIds, entryVM.buildSelection] as [AnyHashable]) {
+        .task(id: [vm.buildIds, entryVM.buildSelection] as [AnyHashable]) {
             if entryVM.buildSelection == nil {
-                entryVM.buildSelection = buildIds.first
+                entryVM.buildSelection = vm.buildIds.first
             }
         }
-        .navigationTitle(Text(project?.displayName ?? "Loading..."))
     }
 }
 

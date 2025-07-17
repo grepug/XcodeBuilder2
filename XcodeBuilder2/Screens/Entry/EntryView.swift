@@ -12,15 +12,26 @@ import SharingGRDB
 
 @Observable
 class EntryViewModel {
-    var projectSelection: String?
+    var projectSelection: ProjectListItem?
     var buildSelection: UUID?
 }
 
 struct EntryView: View {
     @Fetch(AllProjectRequest()) var data = .init()
     
-    var items: [Project] {
+    var projects: [Project] {
         data.projects
+    }
+    
+    var projectListOutlineItems: [ProjectListOutlineItem] {
+        projects.map { project in
+            ProjectListOutlineItem(
+                item: .project(project),
+                children: data.versionStrings[project.bundleIdentifier]?.map {
+                    ProjectListOutlineItem(item: .versionString($0, project: project))
+                }
+            )
+        }
     }
     
     @Dependency(\.defaultDatabase) var db
@@ -38,36 +49,57 @@ struct EntryView: View {
     @State private var showingNewBuildSheet = false
     @State var buildManager = BuildManager()
     @State var vm = EntryViewModel()
+    @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
     
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(
+            columnVisibility: $columnVisibility,
+        ) {
             projectList
         } content: {
             content
+                .navigationSplitViewColumnWidth(min: 200, ideal: 300)
         } detail: {
             if let id = vm.buildSelection {
                 BuildDetailViewContainer(buildId: id)
+                    .navigationSplitViewColumnWidth(min: 300, ideal: 500)
+            } else {
+                Spacer()
+                    .navigationSplitViewColumnWidth(0)
             }
         }
+        .navigationSplitViewStyle(.balanced)
         .environment(buildManager)
         .environment(vm)
-        .onChange(of: items.map(\.id)) { oldValue, newValue in
-            if let id = vm.projectSelection, !newValue.contains(id) {
+        .onChange(of: projects.map(\.id)) { oldValue, newValue in
+            if let selection = vm.projectSelection, !newValue.contains(selection.project.id) {
                 vm.projectSelection = nil
             }
         }
-        .onChange(of: items, initial: true) { oldValue, newValue in
+        .onChange(of: projects, initial: true) { oldValue, newValue in
             if vm.projectSelection == nil, let first = newValue.first {
-                vm.projectSelection = first.bundleIdentifier
+                vm.projectSelection = .project(first)
+            }
+        }
+        .onChange(of: vm.projectSelection) { oldValue, newValue in
+            if let newValue {
+                if case .project = newValue {
+                    vm.buildSelection = nil
+                }
             }
         }
     }
 
     var content: some View {
         Group {
-            if let id = vm.projectSelection {
-                BuildListViewContainer(id: id)
-            } else {
+            switch vm.projectSelection {
+            case .project(let project):
+                Text(project.displayName)
+                    .modifier(ProjectDetailViewModifier(projectId: project.id))
+            case .versionString(let version, let project):
+                BuildListViewContainer(projectId: project.id, versionString: version)
+                    .modifier(ProjectDetailViewModifier(projectId: project.id, versionString: version))
+            case nil:
                 Text("Select a project to view details")
                     .foregroundColor(.secondary)
                     .padding()
@@ -86,7 +118,7 @@ struct EntryView: View {
             }
         }
         .sheet(isPresented: $showingNewBuildSheet) {
-            if let id = vm.projectSelection {
+            if let id = vm.projectSelection?.project.id {
                 BuildEditorContainer(projectId: id) {
                     showingNewBuildSheet = false
                 }
@@ -96,7 +128,7 @@ struct EntryView: View {
     
     var projectList: some View {
         ProjectList(
-            projects: items,
+            items: projectListOutlineItems,
             selection: $vm.projectSelection,
         ) { item in
             Task {
