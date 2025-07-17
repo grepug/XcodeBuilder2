@@ -192,13 +192,13 @@ struct BuildItemView: View {
             build: .init(
                 id: UUID(),
                 schemeId: scheme.id,
-                versionString: "1.0.0",
-                buildNumber: 1,
+                version: .init(version: "1.2.0", buildNumber: 42, commitHash: "xxx"),
                 createdAt: Date().addingTimeInterval(-7200), // 2 hours ago
                 startDate: Date().addingTimeInterval(-3600), // 1 hour ago
                 endDate: Date().addingTimeInterval(-3540), // 1 hour ago (60s duration)
                 exportOptions: [.appStore],
-                status: .completed
+                status: .completed,
+                deviceMetadata: .init(),
             ),
             scheme: scheme
         )
@@ -207,8 +207,7 @@ struct BuildItemView: View {
             build: .init(
                 id: UUID(),
                 schemeId: scheme.id,
-                versionString: "1.2.0",
-                buildNumber: 42,
+                version: .init(version: "1.2.0", buildNumber: 42, commitHash: "xxx"),
                 createdAt: Date().addingTimeInterval(-1800), // 30 minutes ago
                 startDate: Date().addingTimeInterval(-900), // 15 minutes ago
                 endDate: nil,
@@ -223,8 +222,7 @@ struct BuildItemView: View {
             build: .init(
                 id: UUID(),
                 schemeId: scheme.id,
-                versionString: "1.1.0",
-                buildNumber: 23,
+                version: .init(version: "1.2.0", buildNumber: 42, commitHash: "xxx"),
                 createdAt: Date().addingTimeInterval(-300), // 5 minutes ago
                 startDate: nil,
                 endDate: nil,
@@ -238,8 +236,7 @@ struct BuildItemView: View {
             build: .init(
                 id: UUID(),
                 schemeId: scheme.id,
-                versionString: "1.3.0",
-                buildNumber: 55,
+                version: .init(version: "1.2.0", buildNumber: 42, commitHash: "xxx"),
                 createdAt: Date().addingTimeInterval(-5400), // 1.5 hours ago
                 startDate: Date().addingTimeInterval(-4800), // 1.3 hours ago
                 endDate: Date().addingTimeInterval(-4740), // 1.3 hours ago (60s duration)

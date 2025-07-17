@@ -127,6 +127,13 @@ extension DatabaseWriter where Self == DatabaseQueue {
             .execute(db)
         }
 
+        migrator.registerMigration("Add device metadata to builds") { db in
+            try #sql("ALTER TABLE \"builds\" ADD COLUMN \"device_metadata\" TEXT NOT NULL DEFAULT ''").execute(db)
+            try #sql("ALTER TABLE \"builds\" ADD COLUMN \"os_version\" TEXT NOT NULL DEFAULT ''").execute(db)
+            try #sql("ALTER TABLE \"builds\" ADD COLUMN \"memory\" INTEGER NOT NULL DEFAULT 0").execute(db)
+            try #sql("ALTER TABLE \"builds\" ADD COLUMN \"processor\" TEXT NOT NULL DEFAULT ''").execute(db)
+        }
+
         try! migrator.migrate(databaseQueue)
         
         return databaseQueue

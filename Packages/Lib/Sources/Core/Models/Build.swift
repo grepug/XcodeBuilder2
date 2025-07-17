@@ -30,6 +30,20 @@ public enum BuildStatus: String, Codable, Sendable, Hashable, QueryBindable {
     }
 }
 
+public struct DeviceMetadata: Codable, Sendable, Hashable {
+    public let model: String
+    public let osVersion: String
+    public let memory: Int // in GB
+    public let processor: String
+
+    public init(model: String = "", osVersion: String = "", memory: Int = 0, processor: String = "") {
+        self.model = model
+        self.osVersion = osVersion
+        self.memory = memory
+        self.processor = processor
+    }
+}
+
 @Table("builds")
 public struct BuildModel: Identifiable, Sendable, Hashable {
     public var id: UUID
@@ -59,6 +73,16 @@ public struct BuildModel: Identifiable, Sendable, Hashable {
 
     public var progress: Double = 0
 
+    @Column("device_metadata")
+    public var deviceModel: String
+
+    @Column("os_version")
+    public var osVersion: String
+
+    public var memory: Int // in GB
+
+    public var processor: String
+
     @Column("export_options", as: [ExportOption].JSONRepresentation.self)
     public var exportOptions: [ExportOption]
     
@@ -78,23 +102,37 @@ public struct BuildModel: Identifiable, Sendable, Hashable {
         }
     }
 
+    public var deviceMetadata: DeviceMetadata {
+        get {
+            .init(model: deviceModel, osVersion: osVersion, memory: memory, processor: processor)
+        }
+
+        set {
+            deviceModel = newValue.model
+            osVersion = newValue.osVersion
+            memory = newValue.memory
+            processor = newValue.processor
+        }
+    }
+
     public init(
         id: UUID = .init(), 
         schemeId: UUID = .init(), 
-        versionString: String = "1.0.0", 
-        buildNumber: Int = 1, 
+        version: Version = .init(),
         createdAt: Date = .now, 
         startDate: Date? = nil, 
         endDate: Date? = nil, 
         exportOptions: [ExportOption] = [],
         commitHash: String = "",
         status: BuildStatus = .queued,
-        progress: Double = 0
+        progress: Double = 0,
+        deviceMetadata: DeviceMetadata = .init(),
     ) {
         self.id = id
         self.schemeId = schemeId
-        self.versionString = versionString
-        self.buildNumber = buildNumber
+        self.versionString = version.version
+        self.buildNumber = version.buildNumber
+        self.commitHash = commitHash
         self.createdAt = createdAt
         self.startDate = startDate
         self.endDate = endDate
@@ -102,5 +140,9 @@ public struct BuildModel: Identifiable, Sendable, Hashable {
         self.exportOptions = exportOptions
         self.progress = progress
         self.commitHash = commitHash
+        self.deviceModel = deviceMetadata.model
+        self.osVersion = deviceMetadata.osVersion
+        self.memory = deviceMetadata.memory
+        self.processor = deviceMetadata.processor
     }
 }
