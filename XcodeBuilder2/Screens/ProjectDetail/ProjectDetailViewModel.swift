@@ -51,6 +51,7 @@ class ProjectDetailViewModel {
     @ObservationIgnored @FetchOne var project: Project?
     @ObservationIgnored @FetchAll var schemes: [Scheme] = []
     @ObservationIgnored @FetchAll var builds: [BuildModel] = []
+    @ObservationIgnored @FetchAll var allVersions: [String] = []
     
     var versionSelection: String?
     
@@ -71,6 +72,14 @@ class ProjectDetailViewModel {
                     }
                 }
                 .order { $0.buildNumber.desc() }
+        )
+        
+        try! await $allVersions.load(
+            BuildModel
+                .where { $0.schemeId.in(schemes.map(\.id)) }
+                .select(\.versionString)
+                .distinct()
+                .order { $0.versionString.desc() }
         )
     }
 }

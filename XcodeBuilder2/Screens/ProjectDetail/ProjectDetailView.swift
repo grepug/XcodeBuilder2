@@ -25,6 +25,7 @@ struct ProjectDetailViewContainer: View {
             project: vm.project ?? .init(),
             schemes: vm.schemes,
             builds: vm.builds,
+            availableVersions: vm.allVersions,
             versionSelection: $vm.versionSelection,
         )
     }
@@ -34,6 +35,7 @@ struct ProjectDetailView: View {
     var project: Project
     var schemes: [Scheme] = []
     var builds: [BuildModel] = []
+    var availableVersions: [String]
     
     @Binding var versionSelection: String?
     
@@ -54,7 +56,9 @@ struct ProjectDetailView: View {
     @Environment(\.colorScheme) private var colorScheme
     
     private var recentBuilds: [UUID] {
-        Array(buildIds.prefix(5))
+        // Show more builds when a specific version is selected
+        let limit = versionSelection == nil ? 5 : 10
+        return Array(buildIds.prefix(limit))
     }
     
     // Helper function to format duration
@@ -152,20 +156,39 @@ struct ProjectDetailView: View {
                 
                 Spacer()
                 
-                // Action Buttons
-                VStack(spacing: 8) {
-                    Button(action: { showingNewBuildSheet = true }) {
-                        Label("New Build", systemImage: "plus.circle.fill")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                // Version Filter
+                VStack(alignment: .trailing, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Picker("Version:", selection: $versionSelection) {
+                            Text("All Versions")
+                                .tag(nil as String?)
+                            
+                            Divider()
+                            
+                            ForEach(availableVersions, id: \.self) { version in
+                                Text(version)
+                                    .tag(version as String?)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .frame(width: 200)
                     }
-                    .buttonStyle(.borderedProminent)
                     
-                    Button(action: { showingEditProject = true }) {
-                        Label("Edit", systemImage: "pencil")
-                            .font(.caption)
+                    // Action Buttons
+                    HStack(spacing: 8) {
+                        Button(action: { showingNewBuildSheet = true }) {
+                            Label("New Build", systemImage: "plus.circle.fill")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        
+                        Button(action: { showingEditProject = true }) {
+                            Label("Edit", systemImage: "pencil")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    .buttonStyle(.bordered)
                 }
             }
         }
@@ -183,6 +206,18 @@ struct ProjectDetailView: View {
                 Text("Statistics")
                     .font(.headline)
                     .fontWeight(.semibold)
+                
+                if versionSelection != nil {
+                    Text("for \(versionSelection!)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.blue.opacity(0.1))
+                        .foregroundColor(.blue)
+                        .clipShape(Capsule())
+                }
+                
                 Spacer()
             }
             
@@ -285,13 +320,24 @@ struct ProjectDetailView: View {
     private var recentBuildsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Recent Builds")
+                Text(versionSelection == nil ? "Recent Builds" : "Builds")
                     .font(.headline)
                     .fontWeight(.semibold)
                 
+                if versionSelection != nil {
+                    Text(versionSelection!)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.green.opacity(0.1))
+                        .foregroundColor(.green)
+                        .clipShape(Capsule())
+                }
+                
                 Spacer()
                 
-                if buildIds.count > 5 {
+                if buildIds.count > (versionSelection == nil ? 5 : 10) {
                     Button("View All") {
                         // TODO: Navigate to full builds list
                     }
@@ -575,6 +621,11 @@ struct InfoRowItem: View {
                     platforms: [.iOS, .macCatalyst]
                 )
             ],
+            availableVersions: [
+                "1.0.0",
+                "1.1.0",
+                "1.2.0",
+            ],
             versionSelection: .constant(nil),
         )
     }
@@ -588,6 +639,11 @@ struct InfoRowItem: View {
                 displayName: "Empty Project"
             ),
             schemes: [],
+            availableVersions: [
+                "1.0.0",
+                "1.1.0",
+                "1.2.0",
+            ],
             versionSelection: .constant(nil),
         )
     }
