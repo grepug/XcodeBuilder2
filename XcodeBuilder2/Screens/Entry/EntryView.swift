@@ -97,8 +97,9 @@ struct EntryView: View {
                 ProjectDetailViewContainer()
                     .modifier(ProjectDetailViewModifier(projectId: project.id))
             case .versionString(let version, let project):
-                BuildListViewContainer()
-                    .modifier(ProjectDetailViewModifier(projectId: project.id, versionString: version))
+//                BuildListViewContainer(versionString: version)
+//                    .modifier(ProjectDetailViewModifier(projectId: project.id, versionString: version))
+                EmptyView()
             case nil:
                 Text("Select a project to view details")
                     .foregroundColor(.secondary)

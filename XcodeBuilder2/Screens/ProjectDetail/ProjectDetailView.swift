@@ -18,6 +18,29 @@ struct ProjectDetailViewContainer: View {
     
     @State @FetchAll var builds: [BuildModel] = []
     
+    var body: some View {
+        @Bindable var vm = vm
+        
+        ProjectDetailView(
+            project: vm.project ?? .init(),
+            schemes: vm.schemes,
+            builds: vm.builds,
+            versionSelection: $vm.versionSelection,
+        )
+    }
+}
+
+struct ProjectDetailView: View {
+    var project: Project
+    var schemes: [Scheme] = []
+    var builds: [BuildModel] = []
+    
+    @Binding var versionSelection: String?
+    
+    var buildIds: [UUID] {
+        builds.map { $0.id }
+    }
+    
     var totalBuildTimeInterval: TimeInterval {
         builds.reduce(into: 0) { $0 += $1.duration }
     }
@@ -25,32 +48,6 @@ struct ProjectDetailViewContainer: View {
     var averageBuildTimeInterval: TimeInterval {
         builds.isEmpty ? 0 : totalBuildTimeInterval / Double(builds.count)
     }
-    
-    var body: some View {
-        ProjectDetailView(
-            project: vm.project ?? .init(),
-            schemes: vm.schemes,
-            buildIds: vm.buildIds,
-            totalBuildTimeInterval: totalBuildTimeInterval,
-            averageBuildTimeInterval: averageBuildTimeInterval,
-        )
-        .task(id: vm.buildIds) {
-            try! await $builds.wrappedValue.load(
-                BuildModel
-                    .where { $0.id.in(vm.buildIds) }
-                    .where { $0.status == BuildStatus.completed }
-            )
-        }
-    }
-}
-
-struct ProjectDetailView: View {
-    var project: Project
-    var schemes: [Scheme] = []
-    var buildIds: [UUID] = []
-    
-    var totalBuildTimeInterval: TimeInterval
-    var averageBuildTimeInterval: TimeInterval
         
     @State private var showingNewBuildSheet = false
     @State private var showingEditProject = false
@@ -578,9 +575,7 @@ struct InfoRowItem: View {
                     platforms: [.iOS, .macCatalyst]
                 )
             ],
-            buildIds: [UUID(), UUID(), UUID(), UUID(), UUID(), UUID(), UUID()],
-            totalBuildTimeInterval: 3600,
-            averageBuildTimeInterval: 514
+            versionSelection: .constant(nil),
         )
     }
 }
@@ -593,9 +588,7 @@ struct InfoRowItem: View {
                 displayName: "Empty Project"
             ),
             schemes: [],
-            buildIds: [],
-            totalBuildTimeInterval: 0,
-            averageBuildTimeInterval: 0
+            versionSelection: .constant(nil),
         )
     }
 }

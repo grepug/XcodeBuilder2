@@ -10,23 +10,26 @@ import Core
 import SharingGRDB
 
 struct BuildListViewContainer: View {
+    var versionString: String
+    
     @Environment(BuildManager.self) private var buildManager
     @Environment(EntryViewModel.self) private var entryVM
     @Environment(ProjectDetailViewModel.self) private var vm
     
     var body: some View {
-        @Bindable var entryVM = entryVM
-        
-        BuildListView(
-            project: vm.project ?? .init(),
-            buildIds: vm.buildIds,
-            buildSelection: $entryVM.buildSelection,
-        )
-        .task(id: [vm.buildIds, entryVM.buildSelection] as [AnyHashable]) {
-            if entryVM.buildSelection == nil {
-                entryVM.buildSelection = vm.buildIds.first
-            }
-        }
+//        @Bindable var entryVM = entryVM
+//        
+//        BuildListView(
+//            project: vm.project ?? .init(),
+//            buildIds: buildIds,
+//            buildSelection: $entryVM.buildSelection,
+//        )
+//        .task(id: [buildIds, entryVM.buildSelection] as [AnyHashable]) {
+//            if entryVM.buildSelection == nil {
+//                entryVM.buildSelection = buildIds.first
+//            }
+//        }
+        EmptyView()
     }
 }
 
