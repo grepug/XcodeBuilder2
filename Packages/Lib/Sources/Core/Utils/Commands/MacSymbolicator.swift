@@ -52,9 +52,30 @@ func recursivelySearchFiles(at url: URL, withExtension ext: String) -> [URL] {
 }
 
 public struct MacSymbolicator {
-    public static func makeCrashLog(content: String, getBuildId: @escaping (CrashLog) async -> UUID) async throws -> CrashLog {
+    public static func makeCrashLog(
+        content: String,
+        getBuildId: @escaping (_ crashLog: CrashLog, _ projectId: String, _ version: Version) async -> UUID,
+    ) async throws -> CrashLog {
         let symbolicatedContent = try await symbolicate(content: content)
-        let (incidentIdentifier, hardwareModel, process, role, dateTime, launchTime, osVersion, isMainThread, _, _, _, _) = parseCrashReport(content: symbolicatedContent)
+        let (incidentIdentifier,
+             hardwareModel,
+             process,
+             role,
+             dateTime,
+             launchTime,
+             osVersion,
+             isMainThread,
+             appIdentifier,
+             appVersion,
+             _, // appVariant is not used in CrashLog
+             _, //
+        ) = parseCrashReport(content: symbolicatedContent)
+        
+        // appVersion is like 2.1.2 (262)
+        let versionString = appVersion.split(separator: " ").first ?? "Unknown"
+        let buildNumber = appVersion.split(separator: " ").last.flatMap { Int($0.trimmingCharacters(in: .punctuationCharacters)) } ?? 0
+        
+        let version = Version(version: String(versionString), buildNumber: buildNumber)
         
         var crashLog = CrashLog(
             incidentIdentifier: incidentIdentifier,
@@ -71,7 +92,7 @@ public struct MacSymbolicator {
         )
 
         // Fetch the build ID asynchronously
-        crashLog.buildId = await getBuildId(crashLog)
+        crashLog.buildId = await getBuildId(crashLog, appIdentifier, version)
 
         return crashLog
     }

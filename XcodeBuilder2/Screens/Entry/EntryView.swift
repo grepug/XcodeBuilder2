@@ -104,10 +104,7 @@ struct EntryView: View {
                     do {
                         let data = try Data(contentsOf: url)
                         let string = String(data: data, encoding: .utf8) ?? "Failed to read data"
-                        
-                        MacSymbolicator.makeCrashLog(content: string) { log in
-                            
-                        }
+                        handleDroppedCrashLogContent(content: string)
                     } catch {
                         print("Error reading IPS file: \(error)")
                     }
@@ -117,6 +114,41 @@ struct EntryView: View {
             }
             
             return true
+        }
+    }
+    
+    func handleDroppedCrashLogContent(content: String) {
+        Task {
+            do {
+                @Dependency(\.defaultDatabase) var db
+                
+                let log = try await MacSymbolicator.makeCrashLog(content: content) { log, projectId, version in
+                    return try! await db.read { db in
+                        let schemeIds = try Scheme
+                            .where { $0.projectBundleIdentifier == projectId }
+                            .select(\.id)
+                            .fetchAll(db)
+                        
+                        let id = try BuildModel
+                            .where { $0.schemeId.in(schemeIds) }
+                            .where { $0.versionString == version.version }
+                            .where { $0.buildNumber == version.buildNumber }
+                            .select(\.id)
+                            .fetchOne(db)!
+                        
+                        return id
+                    }
+                }
+                
+                try! await db.write {
+                    try CrashLog
+                        .insert { log }
+                        .execute($0)
+                }
+            } catch {
+                print("Failed to handle dropped crash log content: \(error)")
+                assertionFailure()
+            }
         }
     }
 

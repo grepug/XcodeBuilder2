@@ -13,7 +13,7 @@ public enum CrashLogPriority: String, Codable, Sendable, Hashable, CaseIterable,
     case low
 }
 
-@Table("crash_logs")
+@Table
 public struct CrashLog: Identifiable, Sendable, Hashable {
     public var id: String {
         incidentIdentifier 
