@@ -63,9 +63,9 @@ EOF
     
     print("Found \(result.count) threads:")
     for thread in result {
-        print("Thread \(thread.number): main=\(thread.isMainThread), crashed=\(thread.isCrashed), stacks=\(thread.stacks.count)")
-        for (i, stack) in thread.stacks.enumerated() {
-            print("  \(i): \(stack)")
+        print("Thread \(thread.number): main=\(thread.isMainThread), crashed=\(thread.isCrashed), frames=\(thread.frames.count)")
+        for (i, frame) in thread.frames.enumerated() {
+            print("  \(i): \(frame.processName) - \(frame.symbol)")
         }
     }
     

@@ -67,7 +67,7 @@ struct CrashLogContentView: View {
         
         // Sort threads: crashed thread first, then by thread number
         return parsedThreads
-            .filter { $0.stacks.count > 3 }
+            .filter { $0.frames.count > 3 }
             .sorted { thread1, thread2 in
                 if thread1.isCrashed && !thread2.isCrashed {
                     return true
@@ -99,10 +99,6 @@ struct CrashLogContentView: View {
     // MARK: - Content Column (First Column)
     private var contentColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Section 1: Basic Info Header
-            basicInfoHeader
-            
-            // Section 2: Thread Stacks with Picker
             threadsSection
         }
     }
@@ -180,7 +176,7 @@ struct CrashLogContentView: View {
             if !threads.isEmpty {
                 // Thread Picker
                 VStack(alignment: .leading, spacing: 8) {
-                    Picker("Thread:", selection: $selectedThreadNumber) {
+                    Picker("", selection: $selectedThreadNumber) {
                         ForEach(threads, id: \.number) { thread in
                             Text(threadDisplayName(for: thread))
                                 .tag(thread.number)
@@ -204,7 +200,7 @@ struct CrashLogContentView: View {
                                 
                                 Spacer()
                                 
-                                Text("\(selectedThread.stacks.count) frames")
+                                Text("\(selectedThread.frames.count) frames")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -213,20 +209,13 @@ struct CrashLogContentView: View {
                             
                             // Stack trace
                             VStack(alignment: .leading, spacing: 2) {
-                                ForEach(Array(selectedThread.stacks.enumerated()), id: \.offset) { index, line in
-                                    HStack(alignment: .top, spacing: 8) {
-                                        Text("\(index)")
-                                            .font(.system(.body, design: .monospaced))
-                                            .foregroundColor(.secondary)
-                                            .frame(width: 25, alignment: .trailing)
-                                        
-                                        Text(line)
-                                            .font(.system(.body, design: .monospaced))
-                                            .textSelection(.enabled)
-                                            .frame(maxWidth: .infinity, alignment: .leading)
-                                    }
-                                    .padding(.horizontal, 20)
-                                    .padding(.vertical, 1)
+                                ForEach(Array(selectedThread.frames.enumerated()), id: \.offset) { index, frame in
+                                    StackFrameView(
+                                        index: index,
+                                        frame: frame,
+                                        appProcessName: crashLog.process,
+                                        isCrashedFrame: selectedThread.isCrashed && index == 0
+                                    )
                                 }
                             }
                         }
@@ -605,6 +594,52 @@ struct TimeInfoRow: View {
                 .font(.subheadline)
                 .fontWeight(.medium)
         }
+        .padding(.vertical, 4)
+    }
+}
+
+struct StackFrameView: View {
+    let index: Int
+    let frame: CrashLogThread.Frame
+    let appProcessName: String
+    let isCrashedFrame: Bool
+    
+    private var isAppFrame: Bool {
+        appProcessName.contains(frame.processName)
+    }
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text("\(index)")
+                .font(.system(.caption, design: .monospaced))
+                .foregroundColor(.secondary)
+                .frame(width: 25, alignment: .trailing)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    Text(frame.processName)
+                        .font(.system(.caption, design: .monospaced))
+                        .fontWeight(isAppFrame ? .semibold : .regular)
+                        .foregroundColor(isAppFrame ? .accentColor : .primary)
+                    
+                    Spacer()
+                }
+                
+                Text(frame.symbol)
+                    .font(.system(.body, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 4)
+                .fill(
+                    isAppFrame ? Color.accentColor.opacity(0.1) :
+                        Color.clear
+                )
+        )
+        .padding(.horizontal, 20)
         .padding(.vertical, 4)
     }
 }

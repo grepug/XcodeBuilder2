@@ -259,9 +259,9 @@ Thread 0:
         #expect(thread.number == 0)
         #expect(thread.isMainThread == true)
         #expect(thread.isCrashed == false)
-        #expect(thread.stacks.count == 2)
-        #expect(thread.stacks[0].contains("libswiftCore.dylib"))
-        #expect(thread.stacks[1].contains("swift_weakInit"))
+        #expect(thread.frames.count == 2)
+        #expect(thread.frames[0].processName == "libswiftCore.dylib")
+        #expect(thread.frames[1].processName == "libswiftCore.dylib")
     }
     
     @Test("Parse multiple threads with crash")
@@ -275,53 +275,53 @@ Thread 0:
         #expect(mainThread != nil)
         #expect(mainThread?.isMainThread == true)
         #expect(mainThread?.isCrashed == false)
-        #expect(mainThread?.stacks.count == 35) // Full stack trace from SwiftUI app
-        #expect(mainThread?.stacks[0].contains("libswiftCore.dylib") == true)
-        #expect(mainThread?.stacks[33].contains("ContextApp") == true)
+        #expect(mainThread?.frames.count == 35) // Full stack trace from SwiftUI app
+        #expect(mainThread?.frames[0].processName == "libswiftCore.dylib")
+        #expect(mainThread?.frames[33].processName == "ContextApp")
         
         // Check crashed thread (Thread 4)
         let crashedThread = result.first { $0.number == 4 }
         #expect(crashedThread != nil)
         #expect(crashedThread?.isMainThread == false)
         #expect(crashedThread?.isCrashed == true)
-        #expect(crashedThread?.stacks.count == 16) // Full crash stack
-        #expect(crashedThread?.stacks[0].contains("BackgroundTaskManager") == true)
-        #expect(crashedThread?.stacks[0].contains("BackgroundTaskManagerProtocol.swift:76") == true)
+        #expect(crashedThread?.frames.count == 16) // Full crash stack
+        #expect(crashedThread?.frames[0].processName == "ContextApp")
+        #expect(crashedThread?.frames[0].symbol.contains("BackgroundTaskManagerProtocol.swift:76") == true)
         
         // Check regular thread (Thread 1)
         let regularThread = result.first { $0.number == 1 }
         #expect(regularThread != nil)
         #expect(regularThread?.isMainThread == false)
         #expect(regularThread?.isCrashed == false)
-        #expect(regularThread?.stacks.count == 1)
-        #expect(regularThread?.stacks[0].contains("start_wqthread") == true)
+        #expect(regularThread?.frames.count == 1)
+        #expect(regularThread?.frames[0].symbol.contains("start_wqthread") == true)
         
         // Check Thread 5 with detailed stack
         let thread5 = result.first { $0.number == 5 }
         #expect(thread5 != nil)
         #expect(thread5?.isMainThread == false)
         #expect(thread5?.isCrashed == false)
-        #expect(thread5?.stacks.count == 25) // Long stack trace
-        #expect(thread5?.stacks[0].contains("mach_msg2_trap") == true)
+        #expect(thread5?.frames.count == 25) // Long stack trace
+        #expect(thread5?.frames[0].symbol.contains("mach_msg2_trap") == true)
         
         // Check named thread (Thread 7)
         let namedThread = result.first { $0.number == 7 }
         #expect(namedThread != nil)
         #expect(namedThread?.isMainThread == false)
         #expect(namedThread?.isCrashed == false)
-        #expect(namedThread?.stacks.count == 13) // UI event fetch thread
+        #expect(namedThread?.frames.count == 13) // UI event fetch thread
         
         // Check Thread 8 (NSURLConnectionLoader)
         let thread8 = result.first { $0.number == 8 }
         #expect(thread8 != nil)
-        #expect(thread8?.stacks.count == 11)
-        #expect(thread8?.stacks[7].contains("CFNetwork") == true)
+        #expect(thread8?.frames.count == 11)
+        #expect(thread8?.frames[7].processName == "CFNetwork")
         
         // Check Thread 10 (AudioSession)
         let thread10 = result.first { $0.number == 10 }
         #expect(thread10 != nil)
-        #expect(thread10?.stacks.count == 6)
-        #expect(thread10?.stacks[0].contains("semaphore_timedwait_trap") == true)
+        #expect(thread10?.frames.count == 6)
+        #expect(thread10?.frames[0].symbol.contains("semaphore_timedwait_trap") == true)
     }
     
     // MARK: - Thread Header Parsing Tests
@@ -341,7 +341,7 @@ Thread 7:
         #expect(thread.number == 7)
         #expect(thread.isMainThread == false)
         #expect(thread.isCrashed == false)
-        #expect(thread.stacks.count == 1)
+        #expect(thread.frames.count == 1)
     }
     
     @Test("Parse crashed thread")
@@ -359,7 +359,7 @@ Thread 4 Crashed:
         #expect(thread.number == 4)
         #expect(thread.isMainThread == false)
         #expect(thread.isCrashed == true)
-        #expect(thread.stacks.count == 2)
+        #expect(thread.frames.count == 2)
     }
     
     @Test("Parse main thread variations")
@@ -401,11 +401,13 @@ Thread 0:
         #expect(result.count == 1)
         
         let thread = result[0]
-        #expect(thread.stacks.count == 3)
-        #expect(thread.stacks[0].contains("swift::RefCounts"))
-        #expect(thread.stacks[1].contains("PlatformViewChild"))
-        #expect(thread.stacks[2].contains("BackgroundTaskManager"))
-        #expect(thread.stacks[2].contains("BackgroundTaskManagerProtocol.swift:76"))
+        #expect(thread.frames.count == 3)
+        #expect(thread.frames[0].processName == "libswiftCore.dylib")
+        #expect(thread.frames[0].symbol.contains("swift::RefCounts"))
+        #expect(thread.frames[1].processName == "SwiftUI")
+        #expect(thread.frames[1].symbol.contains("PlatformViewChild"))
+        #expect(thread.frames[2].processName == "ContextApp")
+        #expect(thread.frames[2].symbol.contains("BackgroundTaskManagerProtocol.swift:76"))
     }
     
     @Test("Parse stack traces with special characters")
@@ -421,10 +423,10 @@ Thread 0:
         #expect(result.count == 1)
         
         let thread = result[0]
-        #expect(thread.stacks.count == 3)
-        #expect(thread.stacks[0].contains("__NSXPCCONNECTION_IS_WAITING_FOR_A_SYNCHRONOUS_REPLY__"))
-        #expect(thread.stacks[1].contains("___forwarding___"))
-        #expect(thread.stacks[2].contains("0x192a4c000 + 5963856"))
+        #expect(thread.frames.count == 3)
+        #expect(thread.frames[0].symbol.contains("__NSXPCCONNECTION_IS_WAITING_FOR_A_SYNCHRONOUS_REPLY__"))
+        #expect(thread.frames[1].symbol.contains("___forwarding___"))
+        #expect(thread.frames[2].symbol.contains("0x192a4c000 + 5963856"))
     }
     
     // MARK: - Edge Cases Tests
@@ -449,12 +451,12 @@ Thread 5:
         let crashedThread = result.first { $0.number == 4 }
         #expect(crashedThread != nil)
         #expect(crashedThread?.isCrashed == true)
-        #expect(crashedThread?.stacks.count == 2)
+        #expect(crashedThread?.frames.count == 2)
         
         let normalThread = result.first { $0.number == 5 }
         #expect(normalThread != nil)
         #expect(normalThread?.isCrashed == false)
-        #expect(normalThread?.stacks.count == 1)
+        #expect(normalThread?.frames.count == 1)
     }
     
     @Test("Parse malformed thread headers")
@@ -475,8 +477,8 @@ Thread 1:
         
         let thread = result[0]
         #expect(thread.number == 1)
-        #expect(thread.stacks.count == 1)
-        #expect(thread.stacks[0].contains("real_thread"))
+        #expect(thread.frames.count == 1)
+        #expect(thread.frames[0].symbol.contains("real_thread"))
     }
     
     @Test("Parse threads with no stack traces")
@@ -495,14 +497,14 @@ Thread 3:
         
         // Threads 1 and 2 should have empty stacks
         let thread1 = result.first { $0.number == 1 }
-        #expect(thread1?.stacks.isEmpty == true)
+        #expect(thread1?.frames.isEmpty == true)
         
         let thread2 = result.first { $0.number == 2 }
-        #expect(thread2?.stacks.isEmpty == true)
+        #expect(thread2?.frames.isEmpty == true)
         
         // Thread 3 should have one stack entry
         let thread3 = result.first { $0.number == 3 }
-        #expect(thread3?.stacks.count == 1)
+        #expect(thread3?.frames.count == 1)
     }
     
     // MARK: - CrashLogThread Model Tests
@@ -513,7 +515,7 @@ Thread 3:
             number: 0,
             isMainThread: true,
             isCrashed: false,
-            stacks: ["test stack"]
+            frames: [CrashLogThread.Frame(processName: "TestApp", symbol: "test symbol")]
         )
         
         // This should compile without issues due to Sendable conformance
@@ -524,7 +526,7 @@ Thread 3:
         #expect(thread.number == 0)
         #expect(thread.isMainThread == true)
         #expect(thread.isCrashed == false)
-        #expect(thread.stacks.count == 1)
+        #expect(thread.frames.count == 1)
     }
     
     @Test("CrashLogThread hashable conformance")
@@ -533,21 +535,21 @@ Thread 3:
             number: 0,
             isMainThread: true,
             isCrashed: false,
-            stacks: ["test"]
+            frames: [CrashLogThread.Frame(processName: "TestApp", symbol: "test")]
         )
         
         let thread2 = CrashLogThread(
             number: 0,
             isMainThread: true,
             isCrashed: false,
-            stacks: ["test"]
+            frames: [CrashLogThread.Frame(processName: "TestApp", symbol: "test")]
         )
         
         let thread3 = CrashLogThread(
             number: 1,
             isMainThread: false,
             isCrashed: false,
-            stacks: ["test"]
+            frames: [CrashLogThread.Frame(processName: "TestApp", symbol: "test")]
         )
         
         #expect(thread1 == thread2)
@@ -561,9 +563,9 @@ Thread 3:
             number: 4,
             isMainThread: false,
             isCrashed: true,
-            stacks: [
-                "0   ContextApp                           0x104bb4d80 test + 1445248",
-                "1   ContextApp                           0x104bb6124 test2 + 1450276"
+            frames: [
+                CrashLogThread.Frame(processName: "ContextApp", symbol: "0x104bb4d80 test + 1445248"),
+                CrashLogThread.Frame(processName: "ContextApp", symbol: "0x104bb6124 test2 + 1450276")
             ]
         )
         
@@ -579,7 +581,7 @@ Thread 3:
         #expect(decodedThread.number == 4)
         #expect(decodedThread.isMainThread == false)
         #expect(decodedThread.isCrashed == true)
-        #expect(decodedThread.stacks.count == 2)
+        #expect(decodedThread.frames.count == 2)
     }
     
     // MARK: - Performance Tests
@@ -607,9 +609,9 @@ Thread 3:
         
         // Verify first and last threads
         let firstThread = result.first { $0.number == 0 }
-        #expect(firstThread?.stacks.count == 20)
+        #expect(firstThread?.frames.count == 20)
         
         let lastThread = result.first { $0.number == 49 }
-        #expect(lastThread?.stacks.count == 20)
+        #expect(lastThread?.frames.count == 20)
     }
 }

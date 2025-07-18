@@ -1,10 +1,15 @@
 import Foundation
 
 public struct CrashLogThread: Sendable, Hashable, Codable {
+    public struct Frame: Sendable, Hashable, Codable {
+        public let processName: String
+        public let symbol: String
+    }
+    
     public let number: Int
     public let isMainThread: Bool
     public let isCrashed: Bool
-    public let stacks: [String]
+    public let frames: [Frame]
 }
 
 public func parseThreadInfo(content: String) -> [CrashLogThread] {
@@ -12,7 +17,7 @@ public func parseThreadInfo(content: String) -> [CrashLogThread] {
     let lines = content.components(separatedBy: .newlines)
     
     var currentThread: CrashLogThread?
-    var currentStacks: [String] = []
+    var currentFrames: [CrashLogThread.Frame] = []
     
     for line in lines {
         let trimmedLine = line.trimmingCharacters(in: .whitespaces)
@@ -30,14 +35,14 @@ public func parseThreadInfo(content: String) -> [CrashLogThread] {
                     number: thread.number,
                     isMainThread: thread.isMainThread,
                     isCrashed: thread.isCrashed,
-                    stacks: currentStacks
+                    frames: currentFrames
                 )
                 threads.append(finalThread)
             }
             
             // Start new thread
             currentThread = threadMatch
-            currentStacks = []
+            currentFrames = []
         }
         // Check for thread name line (e.g., "Thread 0 name:   Dispatch queue: com.apple.main-thread")
         else if let threadInfo = parseThreadNameLine(trimmedLine) {
@@ -47,7 +52,7 @@ public func parseThreadInfo(content: String) -> [CrashLogThread] {
                     number: thread.number,
                     isMainThread: threadInfo.isMainThread || thread.isMainThread,
                     isCrashed: threadInfo.isCrashed || thread.isCrashed,
-                    stacks: []
+                    frames: []
                 )
             } else {
                 // This is a new thread info, but we'll wait for the stack start
@@ -62,18 +67,20 @@ public func parseThreadInfo(content: String) -> [CrashLogThread] {
                     number: thread.number,
                     isMainThread: thread.isMainThread,
                     isCrashed: thread.isCrashed,
-                    stacks: currentStacks
+                    frames: currentFrames
                 )
                 threads.append(finalThread)
             }
             
             // Start new crashed thread
             currentThread = crashedThread
-            currentStacks = []
+            currentFrames = []
         }
         // Check for stack trace line (starts with number and whitespace)
         else if isStackTraceLine(trimmedLine) && currentThread != nil {
-            currentStacks.append(trimmedLine)
+            if let frame = parseStackFrame(trimmedLine) {
+                currentFrames.append(frame)
+            }
         }
         // Check for thread state information (ARM Thread State, etc.)
         else if trimmedLine.contains("Thread State") || trimmedLine.contains("Binary Images") {
@@ -83,11 +90,11 @@ public func parseThreadInfo(content: String) -> [CrashLogThread] {
                     number: thread.number,
                     isMainThread: thread.isMainThread,
                     isCrashed: thread.isCrashed,
-                    stacks: currentStacks
+                    frames: currentFrames
                 )
                 threads.append(finalThread)
                 currentThread = nil
-                currentStacks = []
+                currentFrames = []
             }
         }
     }
@@ -98,7 +105,7 @@ public func parseThreadInfo(content: String) -> [CrashLogThread] {
             number: thread.number,
             isMainThread: thread.isMainThread,
             isCrashed: thread.isCrashed,
-            stacks: currentStacks
+            frames: currentFrames
         )
         threads.append(finalThread)
     }
@@ -126,7 +133,7 @@ private func parseThreadStackStart(_ line: String) -> CrashLogThread? {
         number: threadNumber,
         isMainThread: isMainThread,
         isCrashed: false,
-        stacks: []
+        frames: []
     )
 }
 
@@ -150,7 +157,7 @@ private func parseThreadNameLine(_ line: String) -> CrashLogThread? {
         number: threadNumber,
         isMainThread: isMainThread,
         isCrashed: false,
-        stacks: []
+        frames: []
     )
 }
 
@@ -171,7 +178,7 @@ private func parseCrashedThreadLine(_ line: String) -> CrashLogThread? {
         number: threadNumber,
         isMainThread: threadNumber == 0,
         isCrashed: true,
-        stacks: []
+        frames: []
     )
 }
 
@@ -184,4 +191,40 @@ private func isStackTraceLine(_ line: String) -> Bool {
     }
     
     return regex.firstMatch(in: line, options: [], range: NSRange(line.startIndex..., in: line)) != nil
-} 
+}
+
+private func parseStackFrame(_ line: String) -> CrashLogThread.Frame? {
+    // Stack trace line pattern: "0   ContextApp   0x00000001024b7234 0x10248c000 + 176692"
+    // Or: "1   ContextApp   0x00000001024b6f10 method_name + 120"
+    let framePattern = #"^\d+\s+([^\s]+)\s+.*$"#
+    
+    guard let regex = try? NSRegularExpression(pattern: framePattern, options: []),
+          let match = regex.firstMatch(in: line, options: [], range: NSRange(line.startIndex..., in: line)) else {
+        return nil
+    }
+    
+    // Extract process name
+    let processNameRange = Range(match.range(at: 1), in: line)!
+    let processName = String(line[processNameRange])
+    
+    // For symbol, we'll extract everything after the hex address
+    // Look for pattern like "0x123456 symbol_name + offset" or "symbol_name + offset"
+    let components = line.components(separatedBy: " ").filter { !$0.isEmpty }
+    
+    // Find the index after the hex address (starts with 0x)
+    var symbolStartIndex = 3 // Default fallback
+    for (index, component) in components.enumerated() {
+        if component.hasPrefix("0x") && index + 1 < components.count {
+            symbolStartIndex = index + 1
+            break
+        }
+    }
+    
+    let symbol = symbolStartIndex < components.count ? 
+        components[symbolStartIndex...].joined(separator: " ") : "unknown"
+    
+    return CrashLogThread.Frame(
+        processName: processName,
+        symbol: symbol
+    )
+}
