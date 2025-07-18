@@ -13,10 +13,15 @@ import SharingGRDB
 import AppKit
 #endif
 
+enum ProjectDetailTab: String, CaseIterable {
+    case overview = "Overview"
+    case builds = "Builds"
+}
+
 struct ProjectDetailViewContainer: View {
     @Environment(ProjectDetailViewModel.self) private var vm
     
-    @State @FetchAll var builds: [BuildModel] = []
+    @State private var tabSelection = ProjectDetailTab.overview
     
     var body: some View {
         @Bindable var vm = vm
@@ -27,6 +32,7 @@ struct ProjectDetailViewContainer: View {
             builds: vm.builds,
             availableVersions: vm.allVersions,
             versionSelection: $vm.versionSelection,
+            tabSelection: $tabSelection
         )
     }
 }
@@ -38,6 +44,7 @@ struct ProjectDetailView: View {
     var availableVersions: [String]
     
     @Binding var versionSelection: String?
+    @Binding var tabSelection: ProjectDetailTab
     
     var buildIds: [UUID] {
         builds.map { $0.id }
@@ -86,17 +93,23 @@ struct ProjectDetailView: View {
                 // Header Section
                 projectHeader
                 
-                // Statistics Overview
-                statisticsSection
+                // Tab Picker Section
+                tabPickerSection
                 
-                // Schemes Section
-                schemesSection
-                
-                // Recent Builds Section
-                recentBuildsSection
-                
-                // Repository Info Section
-                repositorySection
+                // Content based on tab selection
+                if tabSelection == .overview {
+                    // Statistics Overview
+                    statisticsSection
+                    
+                    // Schemes Section
+                    schemesSection
+                    
+                    // Repository Info Section
+                    repositorySection
+                } else {
+                    // Full Builds List
+                    fullBuildsSection
+                }
             }
             .padding()
         }
@@ -197,6 +210,18 @@ struct ProjectDetailView: View {
             RoundedRectangle(cornerRadius: 16)
                 .fill(.regularMaterial)
         }
+    }
+    
+    // MARK: - Tab Picker Section
+    private var tabPickerSection: some View {
+        Picker("", selection: $tabSelection) {
+            ForEach(ProjectDetailTab.allCases, id: \.self) { tab in
+                Text(tab.rawValue)
+                    .tag(tab)
+            }
+        }
+        .pickerStyle(.segmented)
+        .frame(width: 300)
     }
     
     // MARK: - Statistics Section
@@ -397,6 +422,54 @@ struct ProjectDetailView: View {
             .background {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(.regularMaterial)
+            }
+        }
+    }
+    
+    // MARK: - Full Builds Section
+    private var fullBuildsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("All Builds")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                if versionSelection != nil {
+                    Text(versionSelection!)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.green.opacity(0.1))
+                        .foregroundColor(.green)
+                        .clipShape(Capsule())
+                }
+                
+                Spacer()
+                
+                Text("\(buildIds.count) builds")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            if buildIds.isEmpty {
+                EmptyStateView(
+                    icon: "hammer",
+                    title: "No Builds Yet",
+                    subtitle: "Create your first build to get started",
+                    actionTitle: "Create First Build",
+                    action: { showingNewBuildSheet = true }
+                )
+            } else {
+                LazyVStack(spacing: 8) {
+                    ForEach(buildIds, id: \.self) { buildId in
+                        BuildItemViewContainer(id: buildId)
+                            .background {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(.regularMaterial)
+                            }
+                    }
+                }
             }
         }
     }
@@ -627,6 +700,7 @@ struct InfoRowItem: View {
                 "1.2.0",
             ],
             versionSelection: .constant(nil),
+            tabSelection: .constant(.overview)
         )
     }
 }
@@ -645,6 +719,7 @@ struct InfoRowItem: View {
                 "1.2.0",
             ],
             versionSelection: .constant(nil),
+            tabSelection: .constant(.overview)
         )
     }
 }
