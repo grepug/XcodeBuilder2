@@ -10,9 +10,6 @@ import Core
 import SharingGRDB
 
 struct BuildListViewContainer: View {
-    var projectId: String
-    var versionString: String
-    
     @Environment(BuildManager.self) private var buildManager
     @Environment(EntryViewModel.self) private var entryVM
     @Environment(ProjectDetailViewModel.self) private var vm

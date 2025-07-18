@@ -94,10 +94,10 @@ struct EntryView: View {
         Group {
             switch vm.projectSelection {
             case .project(let project):
-                Text(project.displayName)
+                ProjectDetailViewContainer()
                     .modifier(ProjectDetailViewModifier(projectId: project.id))
             case .versionString(let version, let project):
-                BuildListViewContainer(projectId: project.id, versionString: version)
+                BuildListViewContainer()
                     .modifier(ProjectDetailViewModifier(projectId: project.id, versionString: version))
             case nil:
                 Text("Select a project to view details")
