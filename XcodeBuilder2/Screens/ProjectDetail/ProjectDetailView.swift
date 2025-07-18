@@ -37,6 +37,13 @@ struct ProjectDetailViewContainer: View {
             tabSelection: $tabSelection,
             buildSelection: $entryVM.buildSelection,
         )
+        .onChange(of: tabSelection) { oldValue, newValue in
+            if newValue == .overview {
+                
+            } else {
+                entryVM.buildSelection = vm.builds.first?.id
+            }
+        }
     }
 }
 
@@ -132,87 +139,169 @@ struct ProjectDetailView: View {
     // MARK: - Header Section
     private var projectHeader: some View {
         VStack(spacing: 16) {
-            HStack(spacing: 16) {
-                // Project Icon
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(LinearGradient(
-                        colors: [.blue.opacity(0.8), .purple.opacity(0.8)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ))
-                    .frame(width: 80, height: 80)
-                    .overlay {
-                        Image(systemName: "app.dashed")
-                            .font(.system(size: 36, weight: .light))
-                            .foregroundColor(.white)
-                    }
+            ViewThatFits {
+                // Regular horizontal layout for larger containers
+                regularHeaderLayout
                 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(project.displayName)
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .lineLimit(2)
-                    
-                    if !project.bundleIdentifier.isEmpty {
-                        Text(project.bundleIdentifier)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .textSelection(.enabled)
-                    }
-                    
-                    Label {
-                        Text("Created \(project.createdAt, style: .date)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } icon: {
-                        Image(systemName: "calendar")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                Spacer()
-                
-                // Version Filter
-                VStack(alignment: .trailing, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Picker("Version:", selection: $versionSelection) {
-                            Text("All Versions")
-                                .tag(nil as String?)
-                            
-                            Divider()
-                            
-                            ForEach(availableVersions, id: \.self) { version in
-                                Text(version)
-                                    .tag(version as String?)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .frame(width: 200)
-                    }
-                    
-                    // Action Buttons
-                    HStack(spacing: 8) {
-                        Button(action: { showingNewBuildSheet = true }) {
-                            Label("New Build", systemImage: "plus.circle.fill")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        
-                        Button(action: { showingEditProject = true }) {
-                            Label("Edit", systemImage: "pencil")
-                                .font(.caption)
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                }
+                // Compact vertical layout for smaller containers
+                compactHeaderLayout
             }
         }
         .padding(20)
         .background {
             RoundedRectangle(cornerRadius: 16)
                 .fill(.regularMaterial)
+        }
+    }
+    
+    // MARK: - Header Layout Variants
+    private var regularHeaderLayout: some View {
+        HStack(spacing: 16) {
+            // Project Icon
+            projectIcon
+            
+            // Project Info
+            projectInfo
+            
+            Spacer()
+            
+            // Version Filter and Actions
+            headerActions
+        }
+    }
+    
+    private var compactHeaderLayout: some View {
+        VStack(spacing: 16) {
+            // Top row: Icon and basic info
+            HStack(spacing: 16) {
+                projectIcon
+                    .scaleEffect(0.8) // Slightly smaller icon for compact view
+                
+                projectInfo
+                
+                Spacer()
+            }
+            
+            // Bottom row: Version filter and actions
+            HStack {
+                // Version Filter (more compact)
+                HStack(spacing: 8) {
+                    Text("Version:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Picker("Version:", selection: $versionSelection) {
+                        Text("All")
+                            .tag(nil as String?)
+                        
+                        Divider()
+                        
+                        ForEach(availableVersions, id: \.self) { version in
+                            Text(version)
+                                .tag(version as String?)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 120)
+                }
+                
+                Spacer()
+                
+                // Compact Action Buttons
+                HStack(spacing: 6) {
+                    Button(action: { showingNewBuildSheet = true }) {
+                        Label("Build", systemImage: "plus.circle.fill")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    
+                    Button(action: { showingEditProject = true }) {
+                        Image(systemName: "pencil")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+        }
+    }
+    
+    private var projectIcon: some View {
+        RoundedRectangle(cornerRadius: 16)
+            .fill(LinearGradient(
+                colors: [.blue.opacity(0.8), .purple.opacity(0.8)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ))
+            .frame(width: 80, height: 80)
+            .overlay {
+                Image(systemName: "app.dashed")
+                    .font(.system(size: 36, weight: .light))
+                    .foregroundColor(.white)
+            }
+    }
+    
+    private var projectInfo: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(project.displayName)
+                .font(.title2)
+                .fontWeight(.semibold)
+                .lineLimit(2)
+            
+            if !project.bundleIdentifier.isEmpty {
+                Text(project.bundleIdentifier)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .textSelection(.enabled)
+            }
+            
+            Label {
+                Text("Created \(project.createdAt, style: .date)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } icon: {
+                Image(systemName: "calendar")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+    
+    private var headerActions: some View {
+        VStack(alignment: .trailing, spacing: 8) {
+            HStack(spacing: 8) {
+                Picker("Version:", selection: $versionSelection) {
+                    Text("All Versions")
+                        .tag(nil as String?)
+                    
+                    Divider()
+                    
+                    ForEach(availableVersions, id: \.self) { version in
+                        Text(version)
+                            .tag(version as String?)
+                    }
+                }
+                .pickerStyle(.menu)
+                .frame(width: 200)
+            }
+            
+            // Action Buttons
+            HStack(spacing: 8) {
+                Button(action: { showingNewBuildSheet = true }) {
+                    Label("New Build", systemImage: "plus.circle.fill")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                }
+                .buttonStyle(.borderedProminent)
+                
+                Button(action: { showingEditProject = true }) {
+                    Label("Edit", systemImage: "pencil")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+            }
         }
     }
     

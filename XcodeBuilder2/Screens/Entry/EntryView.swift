@@ -58,11 +58,11 @@ struct EntryView: View {
             projectList
         } content: {
             content
-                .navigationSplitViewColumnWidth(min: 200, ideal: 300)
+                .navigationSplitViewColumnWidth(min: 400, ideal: 500)
         } detail: {
             if let id = vm.buildSelection {
                 BuildDetailViewContainer(buildId: id)
-                    .navigationSplitViewColumnWidth(min: 300, ideal: 500)
+                    .navigationSplitViewColumnWidth(min: 400, ideal: 500)
             } else {
                 Spacer()
                     .navigationSplitViewColumnWidth(0)
