@@ -20,11 +20,13 @@ enum ProjectDetailTab: String, CaseIterable {
 
 struct ProjectDetailViewContainer: View {
     @Environment(ProjectDetailViewModel.self) private var vm
+    @Environment(EntryViewModel.self) private var entryVM
     
     @State private var tabSelection = ProjectDetailTab.overview
     
     var body: some View {
         @Bindable var vm = vm
+        @Bindable var entryVM = entryVM
         
         ProjectDetailView(
             project: vm.project ?? .init(),
@@ -32,7 +34,8 @@ struct ProjectDetailViewContainer: View {
             builds: vm.builds,
             availableVersions: vm.allVersions,
             versionSelection: $vm.versionSelection,
-            tabSelection: $tabSelection
+            tabSelection: $tabSelection,
+            buildSelection: $entryVM.buildSelection,
         )
     }
 }
@@ -45,6 +48,7 @@ struct ProjectDetailView: View {
     
     @Binding var versionSelection: String?
     @Binding var tabSelection: ProjectDetailTab
+    @Binding var buildSelection: UUID?
     
     var buildIds: [UUID] {
         builds.map { $0.id }
@@ -467,6 +471,23 @@ struct ProjectDetailView: View {
                             .background {
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(.regularMaterial)
+                                    .overlay {
+                                        if buildSelection == buildId {
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .stroke(.blue, lineWidth: 2)
+                                        }
+                                    }
+                            }
+                            .scaleEffect(buildSelection == buildId ? 1.02 : 1.0)
+                            .shadow(
+                                color: buildSelection == buildId ? .blue.opacity(0.3) : .clear,
+                                radius: buildSelection == buildId ? 8 : 0,
+                                x: 0,
+                                y: buildSelection == buildId ? 4 : 0
+                            )
+                            .animation(.easeInOut(duration: 0.2), value: buildSelection)
+                            .onTapGesture {
+                                buildSelection = buildId
                             }
                     }
                 }
@@ -700,7 +721,8 @@ struct InfoRowItem: View {
                 "1.2.0",
             ],
             versionSelection: .constant(nil),
-            tabSelection: .constant(.overview)
+            tabSelection: .constant(.overview),
+            buildSelection: .constant(nil),
         )
     }
 }
@@ -719,7 +741,8 @@ struct InfoRowItem: View {
                 "1.2.0",
             ],
             versionSelection: .constant(nil),
-            tabSelection: .constant(.overview)
+            tabSelection: .constant(.overview),
+            buildSelection: .constant(nil),
         )
     }
 }
