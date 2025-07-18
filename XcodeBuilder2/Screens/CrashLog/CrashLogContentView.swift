@@ -61,6 +61,7 @@ struct CrashLogContentViewContainer: View {
 struct CrashLogContentView: View {
     @Binding var crashLog: CrashLog
     @State private var selectedThreadNumber: Int?
+    @State private var showCopyFeedback = false
     
     var selectedThread: CrashLogThread? {
         threads.first(where: { $0.number == selectedThreadNumber })
@@ -121,15 +122,23 @@ struct CrashLogContentView: View {
                 
                 Button(action: {
                     #if canImport(AppKit)
-                    NSPasteboard.general.setString(crashLog.content, forType: .string)
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    let success = pasteboard.setString(crashLog.content, forType: .string)
+                    if success {
+                        showCopyFeedback = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                            showCopyFeedback = false
+                        }
+                    }
                     #endif
                 }) {
                     HStack(spacing: 4) {
-                        Image(systemName: "doc.on.doc")
-                        Text("Copy")
+                        Image(systemName: showCopyFeedback ? "checkmark" : "doc.on.doc")
+                        Text(showCopyFeedback ? "Copied!" : "Copy")
                             .font(.caption)
                     }
-                    .foregroundColor(.blue)
+                    .foregroundColor(showCopyFeedback ? .green : .blue)
                 }
                 .buttonStyle(.bordered)
             }
