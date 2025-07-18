@@ -9,6 +9,10 @@ import SwiftUI
 import Dependencies
 import Core
 
+struct CrashLogWindowGroup: Codable, Hashable {
+    let id: String
+}
+
 @main
 struct XcodeBuilder2App: App {
     init() {
@@ -23,6 +27,12 @@ struct XcodeBuilder2App: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+        }
+        
+        WindowGroup(id: "crashLog", for: CrashLogWindowGroup.self) { $item in
+            if let item {
+                CrashLogContentViewContainer(id: item.id)
+            }
         }
     }
 }

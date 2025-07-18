@@ -333,10 +333,14 @@ struct CrashLogRow: View {
     let crashLog: CrashLog
     @State private var isExpanded = false
     
+    @Environment(\.openWindow) var openWindow
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header row
-            Button(action: { isExpanded.toggle() }) {
+            Button(action: {
+                openWindow(value: CrashLogWindowGroup(id: crashLog.id))
+            }) {
                 HStack(spacing: 12) {
                     // Priority indicator
                     Circle()

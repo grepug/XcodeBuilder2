@@ -58,17 +58,17 @@ public struct CrashLog: Identifiable, Sendable, Hashable {
     public var priority: CrashLogPriority = .medium
 
     public init(
-        incidentIdentifier: String,
-        isMainThread: Bool,
+        incidentIdentifier: String = "",
+        isMainThread: Bool = false,
         createdAt: Date = Date(),
-        buildId: UUID,
-        content: String,
-        hardwareModel: String,
-        process: String,
-        role: CrashLogRole,
-        dateTime: Date,
-        launchTime: Date,
-        osVersion: String,
+        buildId: UUID = .init(),
+        content: String = "",
+        hardwareModel: String = "",
+        process: String = "",
+        role: CrashLogRole = .foreground,
+        dateTime: Date = .now,
+        launchTime: Date = .now,
+        osVersion: String = "",
         note: String = "",
         fixed: Bool = false,
         priority: CrashLogPriority = .medium
