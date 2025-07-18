@@ -15,6 +15,7 @@ struct BuildDetailViewContainer: View {
     @FetchOne var fetchedBuild: BuildModel?
     @FetchAll var logIds: [UUID]
     @FetchOne var scheme: Scheme?
+    @FetchAll var crashLogs: [CrashLog]
     
     @State private var showDebugLogs: Bool = false
     @State private var selectedTab: BuildDetailView.DetailTab = .info
@@ -28,6 +29,7 @@ struct BuildDetailViewContainer: View {
         BuildDetailView(
             build: build,
             logIds: logIds,
+            crashLogs: crashLogs,
             scheme: scheme,
             showDebugLogs: $showDebugLogs,
             selectedTab: $selectedTab,
@@ -40,6 +42,7 @@ struct BuildDetailViewContainer: View {
             
             try! await $fetchedBuild.load(BuildModel.where { $0.id == buildId })
             try! await $scheme.load(Scheme.where { $0.id == build.schemeId })
+            try! await $crashLogs.load(CrashLog.where { $0.buildId == buildId })
         }
         .task(id: [buildId, showDebugLogs, selectedCategory] as [AnyHashable]) {
             try! await $logIds.load(

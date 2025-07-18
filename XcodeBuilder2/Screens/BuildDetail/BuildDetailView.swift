@@ -12,6 +12,7 @@ import SharingGRDB
 struct BuildDetailView: View {
     var build: BuildModel
     var logIds: [UUID]
+    var crashLogs: [CrashLog] = []
     var scheme: Scheme?
     @Binding var showDebugLogs: Bool
     @Binding var selectedTab: DetailTab
@@ -22,11 +23,13 @@ struct BuildDetailView: View {
     enum DetailTab: String, CaseIterable {
         case info = "Info"
         case logs = "Logs"
+        case crashLogs = "Crash Logs"
         
         var symbol: String {
             switch self {
             case .info: return "info.circle"
             case .logs: return "doc.text"
+            case .crashLogs: return "ladybug"
             }
         }
     }
@@ -55,6 +58,8 @@ struct BuildDetailView: View {
                     infoContent
                 case .logs:
                     logsContent
+                case .crashLogs:
+                    EmptyView()
                 }
                 
                 Spacer()

@@ -134,6 +134,31 @@ extension DatabaseWriter where Self == DatabaseQueue {
             try #sql("ALTER TABLE \"builds\" ADD COLUMN \"processor\" TEXT NOT NULL DEFAULT ''").execute(db)
         }
 
+        migrator.registerMigration("Add crash logs") { db in
+            try #sql(
+                """
+                CREATE TABLE "crashLogs" (
+                    "incident_identifier" TEXT PRIMARY KEY NOT NULL,
+                    "is_main_thread" INTEGER NOT NULL,
+                    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    "build_id" TEXT NOT NULL,
+                    "content" TEXT NOT NULL,
+                    "hardware_model" TEXT NOT NULL,
+                    "process" TEXT NOT NULL,
+                    "role" TEXT NOT NULL,
+                    "date_time" DATETIME NOT NULL,
+                    "launch_time" DATETIME NOT NULL,
+                    "os_version" TEXT NOT NULL,
+                    "note" TEXT NOT NULL DEFAULT '',
+                    "fixed" INTEGER NOT NULL DEFAULT 0,
+                    "priority" TEXT NOT NULL DEFAULT 'medium',
+                    FOREIGN KEY("build_id") REFERENCES "builds"(id) ON DELETE CASCADE
+                )
+                """
+            )
+            .execute(db)
+        }
+
         try! migrator.migrate(databaseQueue)
         
         return databaseQueue
