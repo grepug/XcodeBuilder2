@@ -57,6 +57,10 @@ public struct CrashLog: Identifiable, Sendable, Hashable {
 
     public var priority: CrashLogPriority = .medium
 
+    public var parsedThreads: [CrashLogThread] {
+        parseThreadInfo(content: content)
+    }
+
     public init(
         incidentIdentifier: String = "",
         isMainThread: Bool = false,

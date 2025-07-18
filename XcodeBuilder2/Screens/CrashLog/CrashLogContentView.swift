@@ -56,6 +56,28 @@ struct CrashLogContentViewContainer: View {
 
 struct CrashLogContentView: View {
     @Binding var crashLog: CrashLog
+    @State private var selectedThreadNumber: Int?
+    
+    var selectedThread: CrashLogThread? {
+        threads.first(where: { $0.number == selectedThreadNumber })
+    }
+    
+    private var threads: [CrashLogThread] {
+        let parsedThreads = crashLog.parsedThreads
+        
+        // Sort threads: crashed thread first, then by thread number
+        return parsedThreads
+            .filter { $0.stacks.count > 3 }
+            .sorted { thread1, thread2 in
+                if thread1.isCrashed && !thread2.isCrashed {
+                    return true
+                } else if !thread1.isCrashed && thread2.isCrashed {
+                    return false
+                } else {
+                    return thread1.number < thread2.number
+                }
+        }
+    }
     
     var body: some View {
         NavigationSplitView(preferredCompactColumn: .constant(.sidebar)) {
@@ -69,11 +91,25 @@ struct CrashLogContentView: View {
                 .navigationSplitViewColumnWidth(min: 400, ideal: 500)
         }
         .navigationSplitViewStyle(.balanced)
+        .onChange(of: threads, initial: true) { _, _ in
+            setInitialSelectedThread()
+        }
     }
     
     // MARK: - Content Column (First Column)
     private var contentColumn: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 0) {
+            // Section 1: Basic Info Header
+            basicInfoHeader
+            
+            // Section 2: Thread Stacks with Picker
+            threadsSection
+        }
+    }
+    
+    // MARK: - Basic Info Header
+    private var basicInfoHeader: some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "doc.text")
                     .foregroundColor(.blue)
@@ -96,26 +132,126 @@ struct CrashLogContentView: View {
                 }
                 .buttonStyle(.bordered)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
             
-            ScrollView {
-                Text(crashLog.content)
-                    .font(.system(.body, design: .monospaced))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
+            // Basic crash info in compact cards
+            if !threads.isEmpty {
+                LazyVGrid(columns: [
+                    GridItem(.flexible()),
+                    GridItem(.flexible()),
+                    GridItem(.flexible())
+                ], spacing: 8) {
+                    CompactInfoCard(
+                        icon: "exclamationmark.triangle",
+                        title: "Crashed Thread",
+                        value: "Thread \(crashedThreadNumber)",
+                        color: .red
+                    )
+                    
+                    CompactInfoCard(
+                        icon: "gear",
+                        title: "Total Threads",
+                        value: "\(threads.count)",
+                        color: .blue
+                    )
+                    
+                    CompactInfoCard(
+                        icon: "app.badge",
+                        title: "Process",
+                        value: crashLog.process,
+                        color: .purple
+                    )
+                }
             }
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
-            )
-            .padding(.horizontal, 20)
-            .padding(.bottom, 16)
         }
-//        .background(Color(NSColor.textBackgroundColor))
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .background(Color(NSColor.textBackgroundColor))
+        .overlay(
+            Rectangle()
+                .fill(Color(NSColor.separatorColor))
+                .frame(height: 0.5),
+            alignment: .bottom
+        )
+    }
+    
+    // MARK: - Threads Section
+    private var threadsSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if !threads.isEmpty {
+                // Thread Picker
+                VStack(alignment: .leading, spacing: 8) {
+                    Picker("Thread:", selection: $selectedThreadNumber) {
+                        ForEach(threads, id: \.number) { thread in
+                            Text(threadDisplayName(for: thread))
+                                .tag(thread.number)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(Color(NSColor.controlBackgroundColor))
+                
+                // Thread Stack Content
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        // Thread header info
+                        if let selectedThread {
+                            HStack {
+                                Text(threadDisplayName(for: selectedThread))
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                                
+                                Spacer()
+                                
+                                Text("\(selectedThread.stacks.count) frames")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.top, 16)
+                            
+                            // Stack trace
+                            VStack(alignment: .leading, spacing: 2) {
+                                ForEach(Array(selectedThread.stacks.enumerated()), id: \.offset) { index, line in
+                                    HStack(alignment: .top, spacing: 8) {
+                                        Text("\(index)")
+                                            .font(.system(.body, design: .monospaced))
+                                            .foregroundColor(.secondary)
+                                            .frame(width: 25, alignment: .trailing)
+                                        
+                                        Text(line)
+                                            .font(.system(.body, design: .monospaced))
+                                            .textSelection(.enabled)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                    }
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 1)
+                                }
+                            }
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                // Fallback to original content view
+                ScrollView {
+                    Text(crashLog.content)
+                        .font(.system(.body, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                }
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
+                )
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
+            }
+        }
     }
     
     // MARK: - Settings and Info Column (Second Column)
@@ -308,6 +444,34 @@ struct CrashLogContentView: View {
         case .low:
             return .green
         }
+    }
+    
+    private var crashedThreadNumber: Int {
+        return threads.first(where: { $0.isCrashed })?.number ?? 0
+    }
+    
+    private func threadDisplayName(for thread: CrashLogThread) -> String {
+        if thread.isMainThread {
+            "Main Thread \(thread.number)"
+        } else if thread.isCrashed {
+            "🔥 Thread \(thread.number)"
+        } else {
+            "Thread \(thread.number)"
+        }
+    }
+    
+    private func setInitialSelectedThread() {
+        // Set initial selection to crashed thread
+        if let thread = threads.first(where: { $0.isCrashed }) {
+            selectedThreadNumber = thread.number
+        }
+    }
+}
+
+// MARK: - Array Extension for Safe Access
+extension Array {
+    subscript(safe index: Index) -> Element? {
+        return indices.contains(index) ? self[index] : nil
     }
 }
 
