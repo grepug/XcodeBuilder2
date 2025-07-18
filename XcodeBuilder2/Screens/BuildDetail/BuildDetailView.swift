@@ -59,7 +59,7 @@ struct BuildDetailView: View {
                 case .logs:
                     logsContent
                 case .crashLogs:
-                    EmptyView()
+                    crashLogsContent
                 }
                 
                 Spacer()
@@ -208,6 +208,53 @@ struct BuildDetailView: View {
         }
     }
     
+    private var crashLogsContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Crash Logs")
+                    .font(.headline)
+                
+                Spacer()
+                
+                Text("\(crashLogs.count) crash logs")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            
+            if crashLogs.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.green)
+                    
+                    VStack(spacing: 4) {
+                        Text("No Crash Logs")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        
+                        Text("This build completed without any crashes")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(32)
+                .background {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(.regularMaterial)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(crashLogs, id: \.id) { crashLog in
+                        CrashLogRow(crashLog: crashLog)
+                    }
+                }
+                .padding(.vertical, 8)
+            }
+        }
+    }
+    
     private var logsContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -278,6 +325,169 @@ struct BuildDetailView: View {
             return "\(minutes)m \(seconds)s"
         } else {
             return "\(seconds)s"
+        }
+    }
+}
+
+struct CrashLogRow: View {
+    let crashLog: CrashLog
+    @State private var isExpanded = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header row
+            Button(action: { isExpanded.toggle() }) {
+                HStack(spacing: 12) {
+                    // Priority indicator
+                    Circle()
+                        .fill(priorityColor)
+                        .frame(width: 8, height: 8)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            Text(crashLog.process)
+                                .font(.subheadline.bold())
+                                .foregroundStyle(.primary)
+                            
+                            Text("• \(crashLog.role.rawValue.capitalized)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        
+                        HStack {
+                            Text(formatter.string(from: crashLog.dateTime))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            
+                            if crashLog.fixed {
+                                Text("• Fixed")
+                                    .font(.caption)
+                                    .foregroundStyle(.green)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    // Priority badge
+                    Text(crashLog.priority.rawValue.uppercased())
+                        .font(.caption2.bold())
+                        .foregroundStyle(priorityColor)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(priorityColor.opacity(0.1))
+                        .clipShape(Capsule())
+                    
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
+            
+            // Expanded content
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 12) {
+                    Divider()
+                    
+                    // Crash details
+                    VStack(alignment: .leading, spacing: 8) {
+                        DetailRow(label: "Incident ID", value: crashLog.incidentIdentifier)
+                        DetailRow(label: "Hardware Model", value: crashLog.hardwareModel)
+                        DetailRow(label: "OS Version", value: crashLog.osVersion)
+                        DetailRow(label: "Main Thread", value: crashLog.isMainThread ? "Yes" : "No")
+                        DetailRow(label: "Launch Time", value: DateFormatter.timeFormatter.string(from: crashLog.launchTime))
+                        DetailRow(label: "Created At", value: DateFormatter.timeFormatter.string(from: crashLog.createdAt))
+                        DetailRow(label: "Fixed", value: crashLog.fixed ? "Yes" : "No")
+                        
+                        if !crashLog.note.isEmpty {
+                            DetailRow(label: "Note", value: crashLog.note)
+                        }
+                    }
+                    
+                    // Crash content (stack trace)
+                    if !crashLog.content.isEmpty {
+                        Divider()
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Crash Report")
+                                .font(.subheadline.bold())
+                            
+                            ScrollView {
+                                Text(crashLog.content)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .frame(maxHeight: 200)
+                            .background {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(.quaternary)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+            }
+        }
+        .background {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.regularMaterial)
+        }
+    }
+    
+    private var priorityColor: Color {
+        switch crashLog.priority {
+        case .urgent:
+            return .red
+        case .high:
+            return .orange
+        case .medium:
+            return .yellow
+        case .low:
+            return .blue
+        }
+    }
+    
+    private var formatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .medium
+        return formatter
+    }
+}
+
+extension DateFormatter {
+    static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }()
+}
+
+struct DetailRow: View {
+    let label: String
+    let value: String
+    
+    var body: some View {
+        HStack(alignment: .top) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 100, alignment: .leading)
+            
+            Text(value)
+                .font(.caption)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

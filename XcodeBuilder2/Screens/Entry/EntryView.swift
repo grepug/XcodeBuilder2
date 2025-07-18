@@ -88,6 +88,36 @@ struct EntryView: View {
                 }
             }
         }
+        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+            guard let provider = providers.first else {
+                return false
+            }
+            
+            _ = provider.loadObject(ofClass: URL.self) { url, error in
+                guard let url = url, error == nil else { return }
+                
+                if url.pathExtension.lowercased() == "ips" {
+                    // Process the .ips file
+                    print("IPS file dropped: \(url.path)")
+                    // Here you can add your code to handle the .ips file
+                    // For example, reading the file contents
+                    do {
+                        let data = try Data(contentsOf: url)
+                        let string = String(data: data, encoding: .utf8) ?? "Failed to read data"
+                        
+                        MacSymbolicator.makeCrashLog(content: string) { log in
+                            
+                        }
+                    } catch {
+                        print("Error reading IPS file: \(error)")
+                    }
+                } else {
+                    print("Unsupported file type: \(url.pathExtension)")
+                }
+            }
+            
+            return true
+        }
     }
 
     var content: some View {
@@ -97,8 +127,6 @@ struct EntryView: View {
                 ProjectDetailViewContainer()
                     .modifier(ProjectDetailViewModifier(projectId: project.id))
             case .versionString(let version, let project):
-//                BuildListViewContainer(versionString: version)
-//                    .modifier(ProjectDetailViewModifier(projectId: project.id, versionString: version))
                 EmptyView()
             case nil:
                 Text("Select a project to view details")
