@@ -16,13 +16,13 @@ import AppKit
 struct CrashLogContentViewContainer: View {
     let id: String
     
-    @State @FetchOne var fetchedCrashLog: CrashLog?
+    @FetchOne var fetchedCrashLog: CrashLog?
     @State private var crashLog: CrashLog = .init()
     
     var body: some View {
         CrashLogContentView(crashLog: $crashLog)
             .task(id: id) {
-                try! await $fetchedCrashLog.wrappedValue.load(
+                try! await $fetchedCrashLog.load(
                     CrashLog.where { $0.incidentIdentifier == id }
                 )
             }
@@ -31,8 +31,12 @@ struct CrashLogContentViewContainer: View {
                     crashLog = fetchedCrashLog
                 }
             }
-            .task(id: crashLog) {
+            .task(id: [crashLog, id] as [AnyHashable]) {
                 let crashLog = crashLog
+                
+                guard crashLog.id == id else {
+                    return
+                }
                 
                 guard crashLog != .init() else {
                     return
@@ -99,6 +103,7 @@ struct CrashLogContentView: View {
     // MARK: - Content Column (First Column)
     private var contentColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
+            basicInfoHeader
             threadsSection
         }
     }
@@ -363,7 +368,7 @@ struct CrashLogContentView: View {
                 )
                 
                 CompactInfoCard(
-                    icon: "thread",
+                    icon: "square.stack",
                     title: "Main Thread",
                     value: crashLog.isMainThread ? "Yes" : "No",
                     color: crashLog.isMainThread ? .red : .green
@@ -392,7 +397,11 @@ struct CrashLogContentView: View {
             }
             
             // Time information in a more compact format
-            HStack(spacing: 16) {
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+                GridItem(.flexible())
+            ], spacing: 8) {
                 CompactTimeInfo(
                     icon: "clock",
                     title: "Crashed",
@@ -504,30 +513,50 @@ struct CompactTimeInfo: View {
     let date: Date
     let color: Color
     
-    private var formatter: DateFormatter {
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .none
+        return formatter
+    }
+    
+    private var timeFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateStyle = .none
-        formatter.timeStyle = .short
+        formatter.timeStyle = .medium // This shows seconds
         return formatter
     }
     
     var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .foregroundColor(color)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundColor(color)
+                    .font(.caption2)
+                Spacer()
+            }
+            
+            Text(title)
                 .font(.caption2)
-                .frame(width: 12)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
             
             VStack(alignment: .leading, spacing: 1) {
-                Text(title)
+                Text(dateFormatter.string(from: date))
                     .font(.caption2)
-                    .foregroundColor(.secondary)
-                
-                Text(formatter.string(from: date))
-                    .font(.caption)
                     .fontWeight(.medium)
+                    .lineLimit(1)
+                
+                Text(timeFormatter.string(from: date))
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
             }
         }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(6)
     }
 }
 
@@ -605,7 +634,7 @@ struct StackFrameView: View {
     let isCrashedFrame: Bool
     
     private var isAppFrame: Bool {
-        appProcessName.contains(frame.processName)
+        frame.processName.contains(appProcessName) || appProcessName.contains(frame.processName)
     }
     
     var body: some View {
