@@ -29,6 +29,7 @@ struct BuildItemViewContainer: View {
             guard let schemeId = build?.schemeId else { return }
             try! await $scheme.wrappedValue.load(Scheme.where { $0.id == schemeId })
         }
+        .contentShape(.rect)
         .contextMenu {
             if build?.status == .running {
                 Button("Cancel", action: {

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Charts
 import Core
 import SharingGRDB
 
@@ -21,6 +22,7 @@ enum ProjectDetailTab: String, CaseIterable {
 struct ProjectDetailViewContainer: View {
     @Environment(ProjectDetailViewModel.self) private var vm
     @Environment(EntryViewModel.self) private var entryVM
+    @Environment(BuildManager.self) private var buildManager
     
     @State private var tabSelection = ProjectDetailTab.overview
     
@@ -36,6 +38,12 @@ struct ProjectDetailViewContainer: View {
             versionSelection: $vm.versionSelection,
             tabSelection: $tabSelection,
             buildSelection: $entryVM.buildSelection,
+//            cancelBuild: {
+//                buildManager.cancelBuild(id: $0)
+//            },
+//            deleteBuild: {
+//                buildManager.deleteBuild($0, project: vm.project!)
+//            }
         )
         .onChange(of: tabSelection) { oldValue, newValue in
             if newValue == .overview {
@@ -56,6 +64,9 @@ struct ProjectDetailView: View {
     @Binding var versionSelection: String?
     @Binding var tabSelection: ProjectDetailTab
     @Binding var buildSelection: UUID?
+    
+    var cancelBuild: ((UUID) -> Void)?
+    var deleteBuild: ((BuildModel) -> Void)?
     
     var buildIds: [UUID] {
         builds.map { $0.id }
@@ -111,6 +122,9 @@ struct ProjectDetailView: View {
                 if tabSelection == .overview {
                     // Statistics Overview
                     statisticsSection
+                    
+                    // Build Time Chart Section
+                    buildTimeChartSection
                     
                     // Schemes Section
                     schemesSection
@@ -389,6 +403,121 @@ struct ProjectDetailView: View {
         }
     }
     
+    // MARK: - Build Time Chart Section
+    private var buildTimeChartSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Build Time Trends")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                if versionSelection != nil {
+                    Text("for \(versionSelection!)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.green.opacity(0.1))
+                        .foregroundColor(.green)
+                        .clipShape(Capsule())
+                }
+                
+                Spacer()
+                
+                if !buildTimeChartData.isEmpty {
+                    Text("\(buildTimeChartData.count) builds")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            if buildTimeChartData.isEmpty {
+                EmptyStateView(
+                    icon: "chart.bar",
+                    title: "No Build Data",
+                    subtitle: "Create some builds to see time trends",
+                    actionTitle: "Create First Build",
+                    action: { showingNewBuildSheet = true }
+                )
+            } else {
+                VStack(spacing: 16) {
+                    // Chart
+                    BuildTimeBarChart(data: buildTimeChartData)
+                        .frame(height: 220)
+                    
+                    // Legend
+                    HStack(spacing: 16) {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(.green)
+                                .frame(width: 8, height: 8)
+                            Text("Successful")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(.red)
+                                .frame(width: 8, height: 8)
+                            Text("Failed")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(.orange)
+                                .frame(width: 8, height: 8)
+                            Text("Cancelled")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(.blue)
+                                .frame(width: 8, height: 8)
+                            Text("Running/Queued")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                    }
+                }
+                .padding(16)
+                .background {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(.regularMaterial)
+                }
+            }
+        }
+    }
+    
+    // Chart data for the last 10 builds
+    private var buildTimeChartData: [BuildTimeChartItem] {
+        let recentBuilds = Array(builds.prefix(10))
+        let validBuilds = recentBuilds.compactMap { build -> BuildTimeChartItem? in
+            guard build.duration > 0 else { return nil }
+            return BuildTimeChartItem(
+                id: build.id,
+                duration: build.duration,
+                status: build.status,
+                createdAt: build.createdAt,
+                buildNumber: build.buildNumber
+            )
+        }
+        
+        // Group by build number and keep only the most recent one for each build number
+        let groupedByBuildNumber = Dictionary(grouping: validBuilds) { $0.buildNumber }
+        let uniqueBuilds = groupedByBuildNumber.compactMap { (buildNumber, builds) in
+            builds.max { $0.createdAt < $1.createdAt } // Get the most recent build for this build number
+        }
+        
+        return uniqueBuilds.sorted { $0.createdAt < $1.createdAt } // Show oldest to newest (left to right)
+    }
+    
     // MARK: - Schemes Section
     private var schemesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -428,58 +557,6 @@ struct ProjectDetailView: View {
                         SchemeCard(scheme: scheme) {
                             showingNewBuildSheet = true
                         }
-                    }
-                }
-            }
-        }
-    }
-    
-    // MARK: - Recent Builds Section
-    private var recentBuildsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(versionSelection == nil ? "Recent Builds" : "Builds")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                if versionSelection != nil {
-                    Text(versionSelection!)
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.green.opacity(0.1))
-                        .foregroundColor(.green)
-                        .clipShape(Capsule())
-                }
-                
-                Spacer()
-                
-                if buildIds.count > (versionSelection == nil ? 5 : 10) {
-                    Button("View All") {
-                        // TODO: Navigate to full builds list
-                    }
-                    .font(.subheadline)
-                    .foregroundColor(.blue)
-                }
-            }
-            
-            if recentBuilds.isEmpty {
-                EmptyStateView(
-                    icon: "hammer",
-                    title: "No Builds Yet",
-                    subtitle: "Create your first build to get started",
-                    actionTitle: "Create First Build",
-                    action: { showingNewBuildSheet = true }
-                )
-            } else {
-                LazyVStack(spacing: 8) {
-                    ForEach(recentBuilds, id: \.self) { buildId in
-                        BuildItemViewContainer(id: buildId)
-                            .background {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(.regularMaterial)
-                            }
                     }
                 }
             }
@@ -771,6 +848,90 @@ struct InfoRowItem: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+        }
+    }
+}
+
+// MARK: - Chart Data and Views
+
+struct BuildTimeChartItem: Identifiable {
+    let id: UUID
+    let duration: TimeInterval
+    let status: BuildStatus
+    let createdAt: Date
+    let buildNumber: Int
+    
+    var color: Color {
+        switch status {
+        case .completed: return .green
+        case .failed: return .red
+        case .cancelled: return .orange
+        case .running, .queued: return .blue
+        }
+    }
+    
+    var formattedDuration: String {
+        let minutes = Int(duration) / 60
+        let seconds = Int(duration) % 60
+        
+        if minutes > 0 {
+            return "\(minutes)m \(seconds)s"
+        } else {
+            return "\(seconds)s"
+        }
+    }
+}
+
+struct BuildTimeBarChart: View {
+    let data: [BuildTimeChartItem]
+    
+    var body: some View {
+        Chart(data, id: \.id) { item in
+            BarMark(
+                x: .value("Build", "Build \(item.buildNumber)"),
+                y: .value("Duration", item.duration)
+            )
+            .foregroundStyle(item.color)
+            .cornerRadius(4)
+        }
+        .chartXAxis {
+            AxisMarks { value in
+                AxisGridLine()
+                AxisTick()
+                AxisValueLabel {
+                    if let buildLabel = value.as(String.self) {
+                        Text(buildLabel)
+                            .font(.caption2)
+                    }
+                }
+            }
+        }
+        .chartYAxis {
+            AxisMarks { value in
+                AxisGridLine()
+                AxisTick()
+                AxisValueLabel {
+                    if let duration = value.as(TimeInterval.self) {
+                        Text(formatDuration(duration))
+                    }
+                }
+            }
+        }
+        .chartPlotStyle { plotArea in
+            plotArea
+                .background(.regularMaterial.opacity(0.1))
+                .cornerRadius(8)
+        }
+    }
+    
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let minutes = Int(duration) / 60
+        let seconds = Int(duration) % 60
+        
+        if minutes > 0 {
+            return "\(minutes)m"
+        } else {
+            return "\(seconds)s"
         }
     }
 }
