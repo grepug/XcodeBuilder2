@@ -89,6 +89,11 @@ public struct BuildModel: Identifiable, Sendable, Hashable {
     var projectDirName: String {
         "\(version.displayString)_\(id.uuidString.lowercased().prefix(6))"
     }
+    
+    public var duration: TimeInterval {
+        guard let start = startDate, let end = endDate else { return 0 }
+        return end.timeIntervalSince(start)
+    }
 
     public var version: Version {
         get {
