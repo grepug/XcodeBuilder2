@@ -647,37 +647,123 @@ struct StackFrameView: View {
     }
     
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: 12) {
+            // Frame index with background
             Text("\(index)")
                 .font(.system(.caption, design: .monospaced))
-                .foregroundColor(.secondary)
-                .frame(width: 25, alignment: .trailing)
+                .fontWeight(.medium)
+                .foregroundColor(.white)
+                .frame(width: 20, height: 20)
+                .background(
+                    Circle()
+                        .fill(isAppFrame ? Color.accentColor : Color.secondary.opacity(0.6))
+                )
+                .padding(.top, 2)
             
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 6) {
+                // Process name and file info
                 HStack(spacing: 8) {
                     Text(frame.processName)
                         .font(.system(.caption, design: .monospaced))
-                        .fontWeight(isAppFrame ? .semibold : .regular)
+                        .fontWeight(isAppFrame ? .bold : .semibold)
                         .foregroundColor(isAppFrame ? .accentColor : .primary)
                     
                     Spacer()
+                    
+                    // Combined filename and line number
+                    if let fileName = frame.fileName, !fileName.isEmpty {
+                        HStack(spacing: 4) {
+                            Image(systemName: "doc.text")
+                                .font(.system(.caption2))
+                                .foregroundColor(.secondary)
+                            
+                            HStack(spacing: 2) {
+                                Text(fileName)
+                                    .font(.system(.caption2, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                                
+                                if let lineNumber = frame.lineNumber {
+                                    Text(":\(lineNumber)")
+                                        .font(.system(.caption2, design: .monospaced))
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.orange)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.secondary.opacity(0.1))
+                        )
+                    } else if let lineNumber = frame.lineNumber {
+                        // Show just line number if no filename
+                        HStack(spacing: 2) {
+                            Image(systemName: "number")
+                                .font(.system(.caption2))
+                                .foregroundColor(.orange)
+                            
+                            Text("\(lineNumber)")
+                                .font(.system(.caption2, design: .monospaced))
+                                .fontWeight(.medium)
+                                .foregroundColor(.orange)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.orange.opacity(0.1))
+                        )
+                    }
                 }
                 
+                // Function symbol
                 Text(frame.symbol)
                     .font(.system(.body, design: .monospaced))
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .foregroundColor(isAppFrame ? .primary : .secondary)
+                
+                // Additional context line if it's a crashed frame
+                if isCrashedFrame {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption2)
+                            .foregroundColor(.red)
+                        
+                        Text("Crash point")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .foregroundColor(.red)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.red.opacity(0.1))
+                            .stroke(Color.red.opacity(0.3), lineWidth: 0.5)
+                    )
+                }
             }
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
         .background(
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: 8)
                 .fill(
-                    isAppFrame ? Color.accentColor.opacity(0.1) :
+                    isAppFrame ? Color.accentColor.opacity(0.08) :
+                        isCrashedFrame ? Color.red.opacity(0.05) :
                         Color.clear
                 )
+                .stroke(
+                    isAppFrame ? Color.accentColor.opacity(0.2) :
+                        isCrashedFrame ? Color.red.opacity(0.2) :
+                        Color.clear,
+                    lineWidth: isAppFrame || isCrashedFrame ? 1 : 0
+                )
         )
-        .padding(.horizontal, 20)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 2)
     }
 }

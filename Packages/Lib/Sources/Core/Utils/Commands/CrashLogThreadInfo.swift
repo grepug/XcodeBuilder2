@@ -4,6 +4,8 @@ public struct CrashLogThread: Sendable, Hashable, Codable {
     public struct Frame: Sendable, Hashable, Codable {
         public let processName: String
         public let symbol: String
+        public let lineNumber: Int?
+        public let fileName: String?
     }
     
     public let number: Int
@@ -194,8 +196,11 @@ private func isStackTraceLine(_ line: String) -> Bool {
 }
 
 private func parseStackFrame(_ line: String) -> CrashLogThread.Frame? {
-    // Stack trace line pattern: "0   ContextApp   0x00000001024b7234 0x10248c000 + 176692"
-    // Or: "1   ContextApp   0x00000001024b6f10 method_name + 120"
+    // Stack trace line pattern examples:
+    // "0   ContextApp   0x00000001024b7234 0x10248c000 + 176692"
+    // "1   ContextApp   0x00000001024b6f10 method_name + 120"
+    // "2   ContextApp   0x104bb4d80 closure #1 in BackgroundTaskManager.add(id:operation:mapError:) (in ContextApp) (BackgroundTaskManagerProtocol.swift:76) + 1445248"
+    
     let framePattern = #"^\d+\s+([^\s]+)\s+.*$"#
     
     guard let regex = try? NSRegularExpression(pattern: framePattern, options: []),
@@ -223,8 +228,44 @@ private func parseStackFrame(_ line: String) -> CrashLogThread.Frame? {
     let symbol = symbolStartIndex < components.count ? 
         components[symbolStartIndex...].joined(separator: " ") : "unknown"
     
+    // Extract file name and line number from symbol if present
+    // Pattern: "(...) (FileName.swift:123)"
+    var fileName: String?
+    var lineNumber: Int?
+    var cleanSymbol = symbol
+    
+    // Look for file information in parentheses like "(BackgroundTaskManagerProtocol.swift:76)"
+    // Avoid matching compiler-generated files like "(/<compiler-generated>:0)"
+    let filePattern = #"\(([^/)][^)]*\.swift):(\d+)\)"#
+    if let fileRegex = try? NSRegularExpression(pattern: filePattern, options: []),
+       let fileMatch = fileRegex.firstMatch(in: symbol, options: [], range: NSRange(symbol.startIndex..., in: symbol)) {
+        
+        if let fileRange = Range(fileMatch.range(at: 1), in: symbol) {
+            let extractedFileName = String(symbol[fileRange])
+            // Only set fileName if it doesn't contain "compiler-generated"
+            if !extractedFileName.contains("compiler-generated") {
+                fileName = extractedFileName
+                
+                // Extract line number only if we have a valid file name
+                if let lineRange = Range(fileMatch.range(at: 2), in: symbol) {
+                    lineNumber = Int(String(symbol[lineRange]))
+                }
+                
+                // Remove the file info from the symbol to create a clean symbol
+                let fullMatch = fileMatch.range
+                if let fullMatchRange = Range(fullMatch, in: symbol) {
+                    cleanSymbol = String(symbol[..<fullMatchRange.lowerBound]) + String(symbol[fullMatchRange.upperBound...])
+                    // Clean up any trailing whitespace and trim
+                    cleanSymbol = cleanSymbol.trimmingCharacters(in: .whitespaces)
+                }
+            }
+        }
+    }
+    
     return CrashLogThread.Frame(
         processName: processName,
-        symbol: symbol
+        symbol: cleanSymbol,
+        lineNumber: lineNumber,
+        fileName: fileName
     )
 }

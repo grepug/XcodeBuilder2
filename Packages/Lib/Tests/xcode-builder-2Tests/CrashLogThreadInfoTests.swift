@@ -286,7 +286,8 @@ Thread 0:
         #expect(crashedThread?.isCrashed == true)
         #expect(crashedThread?.frames.count == 16) // Full crash stack
         #expect(crashedThread?.frames[0].processName == "ContextApp")
-        #expect(crashedThread?.frames[0].symbol.contains("BackgroundTaskManagerProtocol.swift:76") == true)
+        #expect(crashedThread?.frames[0].fileName == "BackgroundTaskManagerProtocol.swift")
+        #expect(crashedThread?.frames[0].lineNumber == 76)
         
         // Check regular thread (Thread 1)
         let regularThread = result.first { $0.number == 1 }
@@ -407,7 +408,8 @@ Thread 0:
         #expect(thread.frames[1].processName == "SwiftUI")
         #expect(thread.frames[1].symbol.contains("PlatformViewChild"))
         #expect(thread.frames[2].processName == "ContextApp")
-        #expect(thread.frames[2].symbol.contains("BackgroundTaskManagerProtocol.swift:76"))
+        #expect(thread.frames[2].fileName == "BackgroundTaskManagerProtocol.swift")
+        #expect(thread.frames[2].lineNumber == 76)
     }
     
     @Test("Parse stack traces with special characters")
@@ -515,7 +517,7 @@ Thread 3:
             number: 0,
             isMainThread: true,
             isCrashed: false,
-            frames: [CrashLogThread.Frame(processName: "TestApp", symbol: "test symbol")]
+            frames: [CrashLogThread.Frame(processName: "TestApp", symbol: "test symbol", lineNumber: nil, fileName: nil)]
         )
         
         // This should compile without issues due to Sendable conformance
@@ -535,21 +537,21 @@ Thread 3:
             number: 0,
             isMainThread: true,
             isCrashed: false,
-            frames: [CrashLogThread.Frame(processName: "TestApp", symbol: "test")]
+            frames: [CrashLogThread.Frame(processName: "TestApp", symbol: "test", lineNumber: nil, fileName: nil)]
         )
         
         let thread2 = CrashLogThread(
             number: 0,
             isMainThread: true,
             isCrashed: false,
-            frames: [CrashLogThread.Frame(processName: "TestApp", symbol: "test")]
+            frames: [CrashLogThread.Frame(processName: "TestApp", symbol: "test", lineNumber: nil, fileName: nil)]
         )
         
         let thread3 = CrashLogThread(
             number: 1,
             isMainThread: false,
             isCrashed: false,
-            frames: [CrashLogThread.Frame(processName: "TestApp", symbol: "test")]
+            frames: [CrashLogThread.Frame(processName: "TestApp", symbol: "test", lineNumber: nil, fileName: nil)]
         )
         
         #expect(thread1 == thread2)
@@ -564,8 +566,8 @@ Thread 3:
             isMainThread: false,
             isCrashed: true,
             frames: [
-                CrashLogThread.Frame(processName: "ContextApp", symbol: "0x104bb4d80 test + 1445248"),
-                CrashLogThread.Frame(processName: "ContextApp", symbol: "0x104bb6124 test2 + 1450276")
+                CrashLogThread.Frame(processName: "ContextApp", symbol: "0x104bb4d80 test + 1445248", lineNumber: nil, fileName: nil),
+                CrashLogThread.Frame(processName: "ContextApp", symbol: "0x104bb6124 test2 + 1450276", lineNumber: nil, fileName: nil)
             ]
         )
         
@@ -613,5 +615,47 @@ Thread 3:
         
         let lastThread = result.first { $0.number == 49 }
         #expect(lastThread?.frames.count == 20)
+    }
+    
+    @Test("Parse file name and line number from stack traces")
+    func parseFileNameAndLineNumber() {
+        let content = """
+Thread 0:
+0   ContextApp                    	       0x104bb4d80 closure #1 in closure #1 in BackgroundTaskManager.add(id:operation:mapError:) (in ContextApp) (BackgroundTaskManagerProtocol.swift:76) + 1445248
+1   ContextApp                    	       0x104bb6124 partial apply for closure #1 in closure #1 in BackgroundTaskManager.add(id:operation:mapError:) (in ContextApp) (/<compiler-generated>:0) + 1450276
+2   SwiftUI                       	       0x194c8ba78 PlatformViewChild.updateValue() + 176
+3   ContextApp                    	       0x105110cfc closure #1 in Shared.withLock<A>(_:fileID:filePath:line:column:) (in ContextApp) (Shared.swift:168) + 7064828
+"""
+        
+        let result = parseThreadInfo(content: content)
+        #expect(result.count == 1)
+        
+        let thread = result[0]
+        #expect(thread.frames.count == 4)
+        
+        // First frame with file name and line number
+        let frame1 = thread.frames[0]
+        #expect(frame1.processName == "ContextApp")
+        #expect(frame1.fileName == "BackgroundTaskManagerProtocol.swift")
+        #expect(frame1.lineNumber == 76)
+        #expect(frame1.symbol.contains("BackgroundTaskManager.add"))
+        #expect(!frame1.symbol.contains("BackgroundTaskManagerProtocol.swift:76")) // File info should be removed from symbol
+        
+        // Second frame with compiler-generated (line 0)
+        let frame2 = thread.frames[1]
+        #expect(frame2.fileName == nil) // <compiler-generated> should not be parsed as valid filename
+        #expect(frame2.lineNumber == nil)
+        
+        // Third frame without file info
+        let frame3 = thread.frames[2]
+        #expect(frame3.processName == "SwiftUI")
+        #expect(frame3.fileName == nil)
+        #expect(frame3.lineNumber == nil)
+        
+        // Fourth frame with different file
+        let frame4 = thread.frames[3]
+        #expect(frame4.fileName == "Shared.swift")
+        #expect(frame4.lineNumber == 168)
+        #expect(!frame4.symbol.contains("Shared.swift:168")) // File info should be removed from symbol
     }
 }
