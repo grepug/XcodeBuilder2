@@ -8,6 +8,7 @@
 import SwiftUI
 import Core
 import SharingGRDB
+import Dependencies
 
 #if canImport(AppKit)
 import AppKit
@@ -62,6 +63,13 @@ struct CrashLogContentView: View {
     @Binding var crashLog: CrashLog
     @State private var selectedThreadNumber: Int?
     @State private var showCopyFeedback = false
+    @State private var showFilenameCopyFeedback = false
+    @State private var project: Project?
+    
+    @Dependency(\.xcodeBuildPathManager) var pathManager
+    @FetchOne var buildModel: BuildModel?
+    @FetchOne var scheme: Scheme?
+    @FetchOne var projectFetch: Project?
     
     var selectedThread: CrashLogThread? {
         threads.first(where: { $0.number == selectedThreadNumber })
@@ -98,6 +106,34 @@ struct CrashLogContentView: View {
         .navigationSplitViewStyle(.balanced)
         .onChange(of: threads, initial: true) { _, _ in
             setInitialSelectedThread()
+        }
+        .task(id: crashLog.buildId) {
+            // Load the build model
+            try! await $buildModel.load(
+                BuildModel.where { $0.id == crashLog.buildId }
+            )
+        }
+        .task(id: buildModel) {
+            // Load the scheme when build model is available
+            if let buildModel = buildModel {
+                try! await $scheme.load(
+                    Scheme.where { $0.id == buildModel.schemeId }
+                )
+            }
+        }
+        .task(id: scheme) {
+            // Load the project when scheme is available
+            if let scheme = scheme {
+                try! await $projectFetch.load(
+                    Project.where { $0.bundleIdentifier == scheme.projectBundleIdentifier }
+                )
+            }
+        }
+        .task(id: projectFetch) {
+            // Set the project when it's loaded
+            if let projectFetch = projectFetch {
+                project = projectFetch
+            }
         }
     }
     
@@ -141,6 +177,17 @@ struct CrashLogContentView: View {
                     .foregroundColor(showCopyFeedback ? .green : .blue)
                 }
                 .buttonStyle(.bordered)
+                
+                // Filename copy feedback overlay
+                if showFilenameCopyFeedback {
+                    Text("Filename copied!")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(4)
+                }
             }
             
             // Basic crash info in compact cards
@@ -228,7 +275,9 @@ struct CrashLogContentView: View {
                                         index: index,
                                         frame: frame,
                                         appProcessName: crashLog.process,
-                                        isCrashedFrame: selectedThread.isCrashed && index == 0
+                                        isCrashedFrame: selectedThread.isCrashed && index == 0,
+                                        isFileFound: isFileFoundInProject(frame.fileName),
+                                        onFileClick: openFileInXcode
                                     )
                                 }
                             }
@@ -293,7 +342,7 @@ struct CrashLogContentView: View {
                     Text("Priority")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Picker("Priority", selection: $crashLog.priority) {
+                    Picker("", selection: $crashLog.priority) {
                         ForEach(CrashLogPriority.allCases, id: \.self) { priority in
                             HStack {
                                 Circle()
@@ -305,6 +354,7 @@ struct CrashLogContentView: View {
                         }
                     }
                     .pickerStyle(.menu)
+                    .frame(width: 100)
                 }
                 
                 // Fixed Toggle
@@ -472,6 +522,53 @@ struct CrashLogContentView: View {
         if let thread = threads.first(where: { $0.isCrashed }) {
             selectedThreadNumber = thread.number
         }
+    }
+    
+    private func openFileInXcode(fileName: String, lineNumber: Int?) {
+        guard let project = project else { 
+            // No project available, copy filename to clipboard
+            copyFilenameToClipboard(fileName)
+            return 
+        }
+        
+        // Search for the file in the project's working directory
+        if let fileURL = pathManager.findFile(named: fileName, in: project.workingDirectoryURL) {
+            // Try to open the file
+            #if canImport(AppKit)
+            let success = NSWorkspace.shared.open(fileURL)
+            if !success {
+                // File couldn't be opened, copy filename to clipboard
+                copyFilenameToClipboard(fileName)
+            }
+            #endif
+        } else {
+            // File not found, copy filename to clipboard
+            copyFilenameToClipboard(fileName)
+        }
+    }
+    
+    private func isFileFound(_ fileName: String) -> Bool {
+        guard let project = project else { return false }
+        return pathManager.findFile(named: fileName, in: project.workingDirectoryURL) != nil
+    }
+    
+    private func isFileFoundInProject(_ fileName: String?) -> Bool {
+        guard let fileName = fileName, !fileName.isEmpty else { return false }
+        return isFileFound(fileName)
+    }
+    
+    private func copyFilenameToClipboard(_ fileName: String) {
+        #if canImport(AppKit)
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        let success = pasteboard.setString(fileName, forType: .string)
+        if success {
+            showFilenameCopyFeedback = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                showFilenameCopyFeedback = false
+            }
+        }
+        #endif
     }
 }
 
@@ -641,6 +738,8 @@ struct StackFrameView: View {
     let frame: CrashLogThread.Frame
     let appProcessName: String
     let isCrashedFrame: Bool
+    let isFileFound: Bool
+    let onFileClick: (String, Int?) -> Void
     
     private var isAppFrame: Bool {
         frame.processName.contains(appProcessName) || appProcessName.contains(frame.processName)
@@ -672,31 +771,40 @@ struct StackFrameView: View {
                     
                     // Combined filename and line number
                     if let fileName = frame.fileName, !fileName.isEmpty {
-                        HStack(spacing: 4) {
-                            Image(systemName: "doc.text")
-                                .font(.system(.caption2))
-                                .foregroundColor(.secondary)
-                            
-                            HStack(spacing: 2) {
-                                Text(fileName)
-                                    .font(.system(.caption2, design: .monospaced))
-                                    .foregroundColor(.secondary)
-                                    .lineLimit(1)
+                        Button(action: {
+                            onFileClick(fileName, frame.lineNumber)
+                        }) {
+                            HStack(spacing: 4) {
+                                // Show copy icon if file is not found, otherwise show document icon
+                                Image(systemName: isFileFound ? "doc.text" : "doc.on.doc.fill")
+                                    .font(.system(.caption2))
+                                    .foregroundColor(isFileFound ? .secondary : .orange)
                                 
-                                if let lineNumber = frame.lineNumber {
-                                    Text(":\(lineNumber)")
+                                HStack(spacing: 2) {
+                                    Text(fileName)
                                         .font(.system(.caption2, design: .monospaced))
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.orange)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                    
+                                    if let lineNumber = frame.lineNumber {
+                                        Text(":\(lineNumber)")
+                                            .font(.system(.caption2, design: .monospaced))
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.orange)
+                                    }
                                 }
                             }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(isFileFound ? Color.secondary.opacity(0.1) : Color.orange.opacity(0.1))
+                            )
                         }
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color.secondary.opacity(0.1))
-                        )
+                        .buttonStyle(.plain)
+                        .onHover { isHovering in
+                            // Optional: Add hover effect
+                        }
                     } else if let lineNumber = frame.lineNumber {
                         // Show just line number if no filename
                         HStack(spacing: 2) {
