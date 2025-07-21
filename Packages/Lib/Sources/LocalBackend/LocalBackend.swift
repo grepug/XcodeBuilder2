@@ -1,8 +1,14 @@
-// Placeholder file for LocalBackend target
-// This will be populated with actual implementations in subsequent steps
+// LocalBackend module exports
+// Main entry point for LocalBackend functionality
 
 import Foundation
 
-public enum LocalBackend {
-    // LocalBackend implementations will be added here
-}
+// Re-export main types
+@_exported import Core
+
+// Export LocalBackend service and factory
+public typealias LocalBackend = LocalBackendService
+public typealias BackendFactory = LocalBackendFactory
+
+// Export database manager for initialization
+public typealias DatabaseConfig = DatabaseManager

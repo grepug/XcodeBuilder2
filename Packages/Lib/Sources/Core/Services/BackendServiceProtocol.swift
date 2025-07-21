@@ -3,20 +3,20 @@ import Foundation
 /// Core protocol defining backend operations
 public protocol BackendService: Sendable {
     // MARK: - Associated Types for AsyncSequences
-    associatedtype ProjectIdsSequence: AsyncSequence where ProjectIdsSequence.Element == [String]
-    associatedtype ProjectSequence: AsyncSequence where ProjectSequence.Element == ProjectValue?
-    associatedtype ProjectVersionStringsSequence: AsyncSequence where ProjectVersionStringsSequence.Element == [String: [String]]
-    associatedtype SchemeIdsSequence: AsyncSequence where SchemeIdsSequence.Element == [UUID]
-    associatedtype SchemeSequence: AsyncSequence where SchemeSequence.Element == SchemeValue?
-    associatedtype BuildIdsSequence: AsyncSequence where BuildIdsSequence.Element == [UUID]
-    associatedtype BuildSequence: AsyncSequence where BuildSequence.Element == BuildModelValue?
-    associatedtype LatestBuildsSequence: AsyncSequence where LatestBuildsSequence.Element == [BuildModelValue]
-    associatedtype BuildLogIdsSequence: AsyncSequence where BuildLogIdsSequence.Element == [UUID]
-    associatedtype BuildLogSequence: AsyncSequence where BuildLogSequence.Element == BuildLogValue?
-    associatedtype CrashLogIdsSequence: AsyncSequence where CrashLogIdsSequence.Element == [String]
-    associatedtype CrashLogSequence: AsyncSequence where CrashLogSequence.Element == CrashLogValue?
-    associatedtype ProjectDetailSequence: AsyncSequence where ProjectDetailSequence.Element == ProjectDetailData
-    associatedtype BuildVersionStringsSequence: AsyncSequence where BuildVersionStringsSequence.Element == [String]
+    associatedtype ProjectIdsSequence: AsyncSequence where ProjectIdsSequence.Element == [String], ProjectIdsSequence.Failure == Never
+    associatedtype ProjectSequence: AsyncSequence where ProjectSequence.Element == ProjectValue?, ProjectSequence.Failure == Never
+    associatedtype ProjectVersionStringsSequence: AsyncSequence where ProjectVersionStringsSequence.Element == [String: [String]], ProjectVersionStringsSequence.Failure == Never
+    associatedtype SchemeIdsSequence: AsyncSequence where SchemeIdsSequence.Element == [UUID], SchemeIdsSequence.Failure == Never
+    associatedtype SchemeSequence: AsyncSequence where SchemeSequence.Element == SchemeValue?, SchemeSequence.Failure == Never
+    associatedtype BuildIdsSequence: AsyncSequence where BuildIdsSequence.Element == [UUID], BuildIdsSequence.Failure == Never
+    associatedtype BuildSequence: AsyncSequence where BuildSequence.Element == BuildModelValue?, BuildSequence.Failure == Never
+    associatedtype LatestBuildsSequence: AsyncSequence where LatestBuildsSequence.Element == [BuildModelValue], LatestBuildsSequence.Failure == Never
+    associatedtype BuildLogIdsSequence: AsyncSequence where BuildLogIdsSequence.Element == [UUID], BuildLogIdsSequence.Failure == Never
+    associatedtype BuildLogSequence: AsyncSequence where BuildLogSequence.Element == BuildLogValue?, BuildLogSequence.Failure == Never
+    associatedtype CrashLogIdsSequence: AsyncSequence where CrashLogIdsSequence.Element == [String], CrashLogIdsSequence.Failure == Never
+    associatedtype CrashLogSequence: AsyncSequence where CrashLogSequence.Element == CrashLogValue?, CrashLogSequence.Failure == Never
+    associatedtype ProjectDetailSequence: AsyncSequence where ProjectDetailSequence.Element == ProjectDetailData?, ProjectDetailSequence.Failure == Never
+    associatedtype BuildVersionStringsSequence: AsyncSequence where BuildVersionStringsSequence.Element == [String], BuildVersionStringsSequence.Failure == Never
 
     // MARK: - Write Operations
     func createProject(_ project: ProjectValue) async throws
