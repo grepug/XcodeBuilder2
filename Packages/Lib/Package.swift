@@ -39,8 +39,9 @@ let package = Package(
             path: "Sources/LocalBackend"
         ),
         .testTarget(
-            name: "XcodeBuilder2Tests",
-            dependencies: ["Core", "LocalBackend"]
+            name: "Tests",
+            dependencies: ["Core", "LocalBackend"],
+            path: "Tests",
         ),
     ]
 )
