@@ -98,14 +98,16 @@ public extension SharedReaderKey where Self == BackendQueryKey<ProjectDetailData
 private extension AsyncSequence {
   func observe(_ yield: @escaping @Sendable (Element) -> Void, stop: Bool = false) async {
     do {
-      for try await item in self {
+      var iterator = makeAsyncIterator()
+      while let item = try await iterator.next() {
         yield(item)
         if stop {
           break
         }
       }
     } catch {
-      // Handle error if needed
+      // Handle error if needed - errors from async sequences should be logged or handled
+      print("AsyncSequence observe error: \(error)")
     }
   }
 }
@@ -126,27 +128,44 @@ public struct BackendQueryKey<Value: Sendable>: SharedReaderKey {
       @Dependency(\.backendService) var backendService
       
       let resultHolder = ResultHolder<Value>()
-
-      await query.observe(backendService, { value in
-        Task {
-          await resultHolder.setValue(value)
-        }
-      }, true) // stop after first emission for load
       
-      // Wait a bit for the async sequence to emit a value
-      for _ in 0..<500 { // Wait up to 500ms for complex operations
-        try? await Task.sleep(nanoseconds: 1_000_000) // 1ms
+      // Start observe task with detached task to avoid capture issues
+      let observeTask = Task {
+        await query.observe(backendService, { value in
+          Task.detached {
+            await resultHolder.setValue(value)
+          }
+        }, true) // stop after first emission for load
+      }
+      
+      // Wait with reasonable timeout for complex operations
+      var attempts = 0
+      let maxAttempts = 300 // 300ms max wait for complex operations
+      
+      while attempts < maxAttempts {
         if await resultHolder.hasValue() {
           break
         }
+        try? await Task.sleep(for: .milliseconds(1)) // 1ms
+        attempts += 1
       }
       
+      // Cancel the observe task to prevent hanging
+      observeTask.cancel()
+      
+      // Return result or fallback
       if let result = await resultHolder.getValue() {
         continuation.resume(returning: result)
+      } else if let initialValue = context.initialValue {
+        // Use provided default value
+        continuation.resume(returning: initialValue)
       } else {
-        // If no value received, return the initial value from context or throw an error
-        if let initialValue = context.initialValue {
-          continuation.resume(returning: initialValue)
+        // For cases without defaults, try to provide reasonable fallbacks
+        // Check if this is an optional type that we can return nil for
+        if String(describing: Value.self).contains("Optional") {
+          // This is an optional type, we can provide nil
+          let nilValue = Optional<Any>.none
+          continuation.resume(returning: nilValue as! Value)
         } else {
           continuation.resume(throwing: BackendQueryError.notImplemented)
         }
