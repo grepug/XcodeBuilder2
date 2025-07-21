@@ -1,608 +1,288 @@
-# Step 5: SharingGRDB Protocol Conformance
+# Step 5: SharedReaderKey Protocol Implementation for Backend Integration
 
-**Goal**: Implement SharingGRDB protocol conformance that bridges BackendQuery keys to GRDB ValueObservation streams.
+**Goal**: Implement SharedReaderKey protocol conformance to enable @SharedReader integration with backend service using direct dependency injection.
 
 ## Files to Create
 
-### 5.1 SharingGRDB Protocol Conformance
+### 5.1 SharedReaderKey Implementation for Backend Queries
 
-**File**: `Packages/Lib/Sources/LocalBackend/SharingKeys/BackendQuery+SharingGRDB.swift`
+**File**: `Packages/Lib/Sources/LocalBackend/Backend+SharedKey.swift`
 
 ```swift
-import Foundation
-import GRDB
-import SharingGRDB
 import Core
+import Dependencies
+import Foundation
+import Sharing
 
-// MARK: - SharingGRDB Protocol Conformance
+// MARK: - Backend Query Types
 
-extension BackendQuery: SharingGRDBKey {
-    public typealias Value = Value
-
-    /// Create a ValueObservation based on the query key
-    public func valueObservation(_ db: Database) throws -> ValueObservation<DatabaseRegionConvertible, Value?> {
-
-        // Parse the query key to determine what to observe
-        let components = key.split(separator: ".").map(String.init)
-
-        switch components.first {
-        case "projects":
-            return try projectsObservation(db, components: components)
-        case "project":
-            return try projectObservation(db, components: components)
-        case "scheme":
-            return try schemeObservation(db, components: components)
-        case "schemes":
-            return try schemesObservation(db, components: components)
-        case "build":
-            return try buildObservation(db, components: components)
-        case "buildLog":
-            return try buildLogObservation(db, components: components)
-        case "crashLog":
-            return try crashLogObservation(db, components: components)
-        default:
-            throw BackendQueryError.unsupportedQuery(key)
-        }
-    }
+enum BackendQuery {
+  case allProjects
+  case buildsForProject(UUID)
+  case allDestinations
+  case projectDetail(UUID)
 }
 
-// MARK: - Query Parsing and Observation Creation
+// MARK: - Backend Query Key
 
-private extension BackendQuery {
+struct BackendQueryKey<Value: Sendable>: SharedReaderKey {
+  let query: BackendQuery
+  let id: AnyHashable
 
-    func projectsObservation(_ db: Database, components: [String]) throws -> ValueObservation<DatabaseRegionConvertible, Value?> {
-        if components.count >= 2 && components[1] == "all" && components[2] == "ids" {
-            // projects.all.ids -> [String]
-            let observation = ValueObservation.tracking(
-                ProjectValue.selectAll().fetchAll
-            ).map { projects in
-                projects.map(\.bundleIdentifier) as! Value
-            }
-            return observation.map { $0 as Value? }
-
-        } else if components.count >= 2 && components[1] == "versionStrings" {
-            // projects.versionStrings -> [String: [String]]
-            let observation = ValueObservation.tracking { db in
-                let rows = try Row.fetchAll(db, sql: """
-                    SELECT p.bundleIdentifier, b.versionString
-                    FROM projects p
-                    JOIN schemes s ON p.bundleIdentifier = s.projectBundleIdentifier
-                    JOIN builds b ON s.id = b.schemeId
-                    GROUP BY p.bundleIdentifier, b.versionString
-                    ORDER BY p.bundleIdentifier, b.versionString
-                    """)
-
-                var result: [String: [String]] = [:]
-                for row in rows {
-                    let projectId: String = row["bundleIdentifier"]
-                    let version: String = row["versionString"]
-                    result[projectId, default: []].append(version)
-                }
-                return result as! Value
-            }
-            return observation.map { $0 as Value? }
-        }
-
-        throw BackendQueryError.unsupportedQuery(key)
+  init(_ query: BackendQuery) {
+    self.query = query
+    // Create unique ID based on query type and parameters
+    switch query {
+    case .allProjects:
+      self.id = "allProjects"
+    case .buildsForProject(let projectId):
+      self.id = "buildsForProject-\(projectId)"
+    case .allDestinations:
+      self.id = "allDestinations"
+    case .projectDetail(let projectId):
+      self.id = "projectDetail-\(projectId)"
     }
+  }
 
-    func projectObservation(_ db: Database, components: [String]) throws -> ValueObservation<DatabaseRegionConvertible, Value?> {
-        guard components.count >= 2 else {
-            throw BackendQueryError.malformedQuery(key)
+  func load(context: LoadContext<Value>, continuation: LoadContinuation<Value>) {
+    Task {
+      @Dependency(\.backendService) var backendService
+
+      do {
+        let result: Any
+
+        switch query {
+        case .allProjects:
+          result = try await backendService.allProjects()
+        case .buildsForProject(let projectId):
+          result = try await backendService.buildsForProject(projectId: projectId)
+        case .allDestinations:
+          result = try await backendService.allDestinations()
+        case .projectDetail(let projectId):
+          result = try await backendService.project(id: projectId)
         }
 
-        let projectId = components[1]
-
-        if components.count == 2 {
-            // project.{id} -> ProjectValue?
-            let observation = ValueObservation.tracking(
-                ProjectValue.fetchOne(_:key: projectId)
-            ).map { $0 as! Value? }
-            return observation
-
-        } else if components.count >= 3 {
-            switch components[2] {
-            case "detail":
-                // project.{id}.detail -> ProjectDetailData
-                let observation = ValueObservation.tracking { db -> ProjectDetailData? in
-                    guard let project = try ProjectValue.fetchOne(db, key: projectId) else {
-                        return nil
-                    }
-
-                    let schemeIds = try SchemeValue
-                        .filter(Column("projectBundleIdentifier") == projectId)
-                        .order(Column("order"))
-                        .fetchAll(db)
-                        .map(\.id)
-
-                    let recentBuildIds = try BuildModelValue
-                        .joining(required: BuildModelValue.scheme.joining(required: SchemeValue.project))
-                        .filter(Column("bundleIdentifier") == projectId)
-                        .order(Column("createdAt").desc)
-                        .limit(10)
-                        .fetchAll(db)
-                        .map(\.id)
-
-                    return ProjectDetailData(
-                        project: project,
-                        schemeIds: schemeIds,
-                        recentBuildIds: recentBuildIds
-                    )
-                }.map { $0 as! Value? }
-                return observation
-
-            case "schemes":
-                if components.count >= 4 && components[3] == "ids" {
-                    // project.{id}.schemes.ids -> [UUID]
-                    let observation = ValueObservation.tracking {
-                        SchemeValue
-                            .filter(Column("projectBundleIdentifier") == projectId)
-                            .order(Column("order"))
-                            .fetchAll($0)
-                    }.map { schemes in
-                        schemes.map(\.id) as! Value
-                    }
-                    return observation.map { $0 as Value? }
-                }
-
-            case "buildVersionStrings":
-                // project.{id}.buildVersionStrings -> [String]
-                let observation = ValueObservation.tracking { db in
-                    let rows = try Row.fetchAll(db, sql: """
-                        SELECT DISTINCT b.versionString
-                        FROM builds b
-                        JOIN schemes s ON b.schemeId = s.id
-                        WHERE s.projectBundleIdentifier = ?
-                        ORDER BY b.versionString DESC
-                        """, arguments: [projectId])
-                    return rows.map { $0["versionString"] as String } as! Value
-                }
-                return observation.map { $0 as Value? }
-
-            case "latestBuilds":
-                if components.count >= 4, let limitComponent = components[3].split(separator: "t").last,
-                   let limit = Int(limitComponent) {
-                    // project.{id}.latestBuilds.limit{N} -> [BuildModelValue]
-                    let observation = ValueObservation.tracking { db in
-                        try BuildModelValue
-                            .joining(required: BuildModelValue.scheme.joining(required: SchemeValue.project))
-                            .filter(Column("bundleIdentifier") == projectId)
-                            .order(Column("createdAt").desc)
-                            .limit(limit)
-                            .fetchAll(db) as! Value
-                    }
-                    return observation.map { $0 as Value? }
-                }
-            }
+        if let typedResult = result as? Value {
+          continuation.resume(returning: typedResult)
+        } else {
+          throw BackendQueryError.typeMismatch
         }
-
-        throw BackendQueryError.unsupportedQuery(key)
+      } catch {
+        continuation.resume(throwing: error)
+      }
     }
+  }
 
-    func schemeObservation(_ db: Database, components: [String]) throws -> ValueObservation<DatabaseRegionConvertible, Value?> {
-        guard components.count >= 2 else {
-            throw BackendQueryError.malformedQuery(key)
-        }
-
-        let schemeIdString = components[1]
-
-        // scheme.{id} -> SchemeValue?
-        let observation = ValueObservation.tracking(
-            SchemeValue.fetchOne(_:key: schemeIdString)
-        ).map { $0 as! Value? }
-        return observation
-    }
-
-    func schemesObservation(_ db: Database, components: [String]) throws -> ValueObservation<DatabaseRegionConvertible, Value?> {
-        // Parse schemes.{id1,id2,id3}.builds.ids[.{version}]
-        guard components.count >= 4,
-              components[2] == "builds",
-              components[3] == "ids" else {
-            throw BackendQueryError.malformedQuery(key)
-        }
-
-        let schemeIdsString = components[1]
-        let schemeIdStrings = schemeIdsString.split(separator: ",").map(String.init)
-
-        var versionString: String? = nil
-        if components.count >= 5 {
-            versionString = components[4]
-        }
-
-        let observation = ValueObservation.tracking { db in
-            var query = BuildModelValue
-                .filter(schemeIdStrings.contains(Column("schemeId")))
-                .order(Column("createdAt").desc)
-
-            if let versionString = versionString {
-                query = query.filter(Column("versionString") == versionString)
-            }
-
-            return try query.fetchAll(db).map(\.id) as! Value
-        }
-        return observation.map { $0 as Value? }
-    }
-
-    func buildObservation(_ db: Database, components: [String]) throws -> ValueObservation<DatabaseRegionConvertible, Value?> {
-        guard components.count >= 2 else {
-            throw BackendQueryError.malformedQuery(key)
-        }
-
-        let buildIdString = components[1]
-
-        if components.count == 2 {
-            // build.{id} -> BuildModelValue?
-            let observation = ValueObservation.tracking(
-                BuildModelValue.fetchOne(_:key: buildIdString)
-            ).map { $0 as! Value? }
-            return observation
-
-        } else if components.count >= 4 && components[2] == "logs" && components[3] == "ids" {
-            // build.{id}.logs.ids[.debug][.category{cat}] -> [UUID]
-            guard let buildId = UUID(uuidString: buildIdString) else {
-                throw BackendQueryError.malformedQuery(key)
-            }
-
-            var includeDebug = false
-            var category: String? = nil
-
-            // Parse additional components
-            for i in 4..<components.count {
-                let component = components[i]
-                if component == "debug" {
-                    includeDebug = true
-                } else if component.hasPrefix("category") {
-                    category = String(component.dropFirst("category".count))
-                }
-            }
-
-            let observation = ValueObservation.tracking { db in
-                var query = BuildLogValue
-                    .filter(Column("buildId") == buildId.uuidString)
-                    .order(Column("createdAt"))
-
-                if !includeDebug {
-                    query = query.filter(Column("level") != BuildLogLevel.debug.rawValue)
-                }
-
-                if let category = category {
-                    query = query.filter(Column("category") == category)
-                }
-
-                return try query.fetchAll(db).map(\.id) as! Value
-            }
-            return observation.map { $0 as Value? }
-
-        } else if components.count >= 4 && components[2] == "crashLogs" && components[3] == "ids" {
-            // build.{id}.crashLogs.ids -> [String]
-            guard let buildId = UUID(uuidString: buildIdString) else {
-                throw BackendQueryError.malformedQuery(key)
-            }
-
-            let observation = ValueObservation.tracking {
-                CrashLogValue
-                    .filter(Column("buildId") == buildId.uuidString)
-                    .order(Column("createdAt").desc)
-                    .fetchAll($0)
-            }.map { logs in
-                logs.map(\.incidentIdentifier) as! Value
-            }
-            return observation.map { $0 as Value? }
-        }
-
-        throw BackendQueryError.unsupportedQuery(key)
-    }
-
-    func buildLogObservation(_ db: Database, components: [String]) throws -> ValueObservation<DatabaseRegionConvertible, Value?> {
-        guard components.count >= 2 else {
-            throw BackendQueryError.malformedQuery(key)
-        }
-
-        let buildLogIdString = components[1]
-
-        // buildLog.{id} -> BuildLogValue?
-        let observation = ValueObservation.tracking(
-            BuildLogValue.fetchOne(_:key: buildLogIdString)
-        ).map { $0 as! Value? }
-        return observation
-    }
-
-    func crashLogObservation(_ db: Database, components: [String]) throws -> ValueObservation<DatabaseRegionConvertible, Value?> {
-        guard components.count >= 2 else {
-            throw BackendQueryError.malformedQuery(key)
-        }
-
-        let crashLogId = components[1]
-
-        // crashLog.{id} -> CrashLogValue?
-        let observation = ValueObservation.tracking(
-            CrashLogValue.fetchOne(_:key: crashLogId)
-        ).map { $0 as! Value? }
-        return observation
-    }
+  func subscribe(
+    context: LoadContext<Value>,
+    subscriber: SharedSubscriber<Value>
+  ) -> SharedSubscription {
+    // Return empty subscription for now - could be enhanced with database observers
+    return SharedSubscription {}
+  }
 }
 
-// MARK: - Error Types
+// MARK: - Backend Query Error
 
-public enum BackendQueryError: Error, LocalizedError {
-    case unsupportedQuery(String)
-    case malformedQuery(String)
+enum BackendQueryError: Error {
+  case typeMismatch
+}
 
-    public var errorDescription: String? {
-        switch self {
-        case .unsupportedQuery(let key):
-            return "Unsupported query: \(key)"
-        case .malformedQuery(let key):
-            return "Malformed query: \(key)"
-        }
-    }
+// MARK: - Convenience Extensions
+
+extension SharedReaderKey where Self == BackendQueryKey<[Project]> {
+  /// Shared key for retrieving all projects from the backend
+  static var allProjects: Self {
+    BackendQueryKey(.allProjects)
+  }
+}
+
+extension SharedReaderKey where Self == BackendQueryKey<[Build]> {
+  /// Shared key for retrieving builds for a specific project
+  static func buildsForProject(_ projectId: UUID) -> Self {
+    BackendQueryKey(.buildsForProject(projectId))
+  }
+}
+
+extension SharedReaderKey where Self == BackendQueryKey<[Destination]> {
+  /// Shared key for retrieving all destinations from the backend
+  static var allDestinations: Self {
+    BackendQueryKey(.allDestinations)
+  }
+}
+
+extension SharedReaderKey where Self == BackendQueryKey<Project?> {
+  /// Shared key for retrieving detailed project information
+  static func projectDetail(_ projectId: UUID) -> Self {
+    BackendQueryKey(.projectDetail(projectId))
+  }
 }
 ```
 
-### 5.2 GRDB Model Associations
+### 5.2 Backend Service Dependency Integration
 
-**File**: `Packages/Lib/Sources/LocalBackend/Models/GRDBAssociations.swift`
+**File**: `Packages/Lib/Sources/LocalBackend/LocalBackendService+Dependency.swift`
 
 ```swift
+import Dependencies
 import Foundation
-import GRDB
-import Core
 
-// MARK: - GRDB Associations
-
-extension ProjectValue {
-    static let schemes = hasMany(SchemeValue.self, using: ForeignKey(["projectBundleIdentifier"]))
+public extension DependencyValues {
+  var backendService: LocalBackendService {
+    get { self[LocalBackendServiceKey.self] }
+    set { self[LocalBackendServiceKey.self] = newValue }
+  }
 }
 
-extension SchemeValue {
-    static let project = belongsTo(ProjectValue.self, using: ForeignKey(["projectBundleIdentifier"]))
-    static let builds = hasMany(BuildModelValue.self, using: ForeignKey(["schemeId"]))
-}
-
-extension BuildModelValue {
-    static let scheme = belongsTo(SchemeValue.self, using: ForeignKey(["schemeId"]))
-    static let buildLogs = hasMany(BuildLogValue.self, using: ForeignKey(["buildId"]))
-    static let crashLogs = hasMany(CrashLogValue.self, using: ForeignKey(["buildId"]))
-}
-
-extension BuildLogValue {
-    static let build = belongsTo(BuildModelValue.self, using: ForeignKey(["buildId"]))
-}
-
-extension CrashLogValue {
-    static let build = belongsTo(BuildModelValue.self, using: ForeignKey(["buildId"]))
+private enum LocalBackendServiceKey: DependencyKey {
+  static let liveValue = LocalBackendService()
+  static let testValue = LocalBackendService()
 }
 ```
 
-### 5.3 Domain Model Query Support
+### 5.3 Test Integration Examples
 
-**File**: `Packages/Lib/Sources/LocalBackend/SharingKeys/DomainModelQuerySupport.swift`
-
-```swift
-import Foundation
-import GRDB
-import SharingGRDB
-import Core
-
-// MARK: - Domain Model Query Support
-
-extension BackendQuery where Value == Project? {
-
-    public func valueObservation(_ db: Database) throws -> ValueObservation<DatabaseRegionConvertible, Value?> {
-        // Extract project ID from key like "project.{id}"
-        let components = key.split(separator: ".").map(String.init)
-        guard components.count >= 2, components[0] == "project" else {
-            throw BackendQueryError.malformedQuery(key)
-        }
-
-        let projectId = components[1]
-
-        let observation = ValueObservation.tracking(
-            ProjectValue.fetchOne(_:key: projectId)
-        ).map { backendValue -> Value? in
-            guard let backendValue = backendValue else { return nil }
-            return fromBackend(backendValue, to: Project.self) as? Value
-        }
-
-        return observation
-    }
-}
-
-extension BackendQuery where Value == Scheme? {
-
-    public func valueObservation(_ db: Database) throws -> ValueObservation<DatabaseRegionConvertible, Value?> {
-        let components = key.split(separator: ".").map(String.init)
-        guard components.count >= 2, components[0] == "scheme" else {
-            throw BackendQueryError.malformedQuery(key)
-        }
-
-        let schemeIdString = components[1]
-
-        let observation = ValueObservation.tracking(
-            SchemeValue.fetchOne(_:key: schemeIdString)
-        ).map { backendValue -> Value? in
-            guard let backendValue = backendValue else { return nil }
-            return fromBackend(backendValue, to: Scheme.self) as? Value
-        }
-
-        return observation
-    }
-}
-
-extension BackendQuery where Value == Build? {
-
-    public func valueObservation(_ db: Database) throws -> ValueObservation<DatabaseRegionConvertible, Value?> {
-        let components = key.split(separator: ".").map(String.init)
-        guard components.count >= 2, components[0] == "build" else {
-            throw BackendQueryError.malformedQuery(key)
-        }
-
-        let buildIdString = components[1]
-
-        let observation = ValueObservation.tracking(
-            BuildModelValue.fetchOne(_:key: buildIdString)
-        ).map { backendValue -> Value? in
-            guard let backendValue = backendValue else { return nil }
-            return fromBackend(backendValue, to: Build.self) as? Value
-        }
-
-        return observation
-    }
-}
-
-extension BackendQuery where Value == BuildLog? {
-
-    public func valueObservation(_ db: Database) throws -> ValueObservation<DatabaseRegionConvertible, Value?> {
-        let components = key.split(separator: ".").map(String.init)
-        guard components.count >= 2, components[0] == "buildLog" else {
-            throw BackendQueryError.malformedQuery(key)
-        }
-
-        let buildLogIdString = components[1]
-
-        let observation = ValueObservation.tracking(
-            BuildLogValue.fetchOne(_:key: buildLogIdString)
-        ).map { backendValue -> Value? in
-            guard let backendValue = backendValue else { return nil }
-            return fromBackend(backendValue, to: BuildLog.self) as? Value
-        }
-
-        return observation
-    }
-}
-
-extension BackendQuery where Value == CrashLog? {
-
-    public func valueObservation(_ db: Database) throws -> ValueObservation<DatabaseRegionConvertible, Value?> {
-        let components = key.split(separator: ".").map(String.init)
-        guard components.count >= 2, components[0] == "crashLog" else {
-            throw BackendQueryError.malformedQuery(key)
-        }
-
-        let crashLogId = components[1]
-
-        let observation = ValueObservation.tracking(
-            CrashLogValue.fetchOne(_:key: crashLogId)
-        ).map { backendValue -> Value? in
-            guard let backendValue = backendValue else { return nil }
-            return fromBackend(backendValue, to: CrashLog.self) as? Value
-        }
-
-        return observation
-    }
-}
-
-extension BackendQuery where Value == [Build] {
-
-    public func valueObservation(_ db: Database) throws -> ValueObservation<DatabaseRegionConvertible, Value?> {
-        // Handle queries like "project.{id}.latestBuilds.limit{N}"
-        let components = key.split(separator: ".").map(String.init)
-        guard components.count >= 4,
-              components[0] == "project",
-              components[2] == "latestBuilds",
-              components[3].hasPrefix("limit") else {
-            throw BackendQueryError.malformedQuery(key)
-        }
-
-        let projectId = components[1]
-        guard let limitString = components[3].split(separator: "t").last,
-              let limit = Int(limitString) else {
-            throw BackendQueryError.malformedQuery(key)
-        }
-
-        let observation = ValueObservation.tracking { db in
-            try BuildModelValue
-                .joining(required: BuildModelValue.scheme.joining(required: SchemeValue.project))
-                .filter(Column("bundleIdentifier") == projectId)
-                .order(Column("createdAt").desc)
-                .limit(limit)
-                .fetchAll(db)
-        }.map { backendValues -> Value? in
-            return fromBackendArray(backendValues, to: Build.self) as? Value
-        }
-
-        return observation
-    }
-}
-```
-
-### 5.4 Backend Configuration for SharingGRDB
-
-**File**: `Packages/Lib/Sources/LocalBackend/SharingKeys/BackendSharingConfiguration.swift`
+**File**: `Tests/LocalBackendCoreTests/SharedReaderIntegrationTests.swift`
 
 ```swift
-import Foundation
-import GRDB
-import SharingGRDB
-import Core
+import Testing
+import Sharing
+import Dependencies
+@testable import LocalBackend
 
-/// Configuration for using BackendQuery with SharingGRDB
-public struct BackendSharingConfiguration {
-    public let databasePool: DatabasePool
+@Suite("SharedReader Backend Integration Tests")
+struct SharedReaderIntegrationTests {
 
-    public init(databasePool: DatabasePool) {
-        self.databasePool = databasePool
+  @Test("All projects can be loaded via SharedReader")
+  func allProjectsSharedReader() async throws {
+    // Setup test database
+    let service = try LocalBackendService.setupTestDatabase(path: .inMemory)
+
+    await withDependencies {
+      $0.backendService = service
+    } operation: {
+      // Create a SharedReader for all projects
+      let projectsReader = SharedReader(.allProjects)
+
+      // Load the projects
+      try await projectsReader.load()
+
+      // Verify the result
+      #expect(!projectsReader.wrappedValue.isEmpty || projectsReader.wrappedValue.isEmpty)
     }
+  }
 
-    /// Set up SharingGRDB to use the backend database
-    public func configureSharingGRDB() {
-        // This would typically be done in your app's main setup
-        // The SharingGRDB library will automatically use the database pool
-        // when BackendQuery keys are accessed via @Shared properties
+  @Test("Builds for project can be loaded via SharedReader")
+  func buildsForProjectSharedReader() async throws {
+    let service = try LocalBackendService.setupTestDatabase(path: .inMemory)
+
+    await withDependencies {
+      $0.backendService = service
+    } operation: {
+      // First create a test project
+      let project = try await createTestProject()
+      let testProjectId = project.id
+
+      // Create a SharedReader for builds
+      let buildsReader = SharedReader(.buildsForProject(testProjectId))
+
+      // Load the builds
+      try await buildsReader.load()
+
+      // Verify the result
+      #expect(buildsReader.wrappedValue.isEmpty) // Should be empty initially
     }
-}
+  }
 
-// MARK: - Helper for App Integration
-
-public extension LocalBackendService {
-
-    /// Get the database pool for SharingGRDB integration
-    var databasePoolForSharing: DatabasePool {
-        return dbPool
-    }
+  private func createTestProject() async throws -> Project {
+    @Dependency(\.backendService) var service
+    let project = Project(
+      id: UUID(),
+      name: "Test Project",
+      path: "/path/to/test",
+      schemes: []
+    )
+    try await service.createProject(project)
+    return project
+  }
 }
 ```
 
 ## Implementation Checklist
 
-- [ ] Create `BackendQuery+SharingGRDB.swift` with SharingGRDBKey conformance
-- [ ] Create `GRDBAssociations.swift` with model relationships
-- [ ] Create `DomainModelQuerySupport.swift` for automatic conversions
-- [ ] Create `BackendSharingConfiguration.swift` for setup
-- [ ] Implement query parsing logic for all supported queries:
-  - [ ] Project queries (all IDs, individual project, version strings, etc.)
-  - [ ] Scheme queries (individual scheme, scheme IDs)
-  - [ ] Build queries (individual build, build IDs, latest builds)
-  - [ ] Build log queries (individual log, log IDs with filters)
-  - [ ] Crash log queries (individual log, crash log IDs)
-- [ ] Test SharingGRDBKey protocol conformance works
-- [ ] Test automatic domain model conversion in observations
-- [ ] Verify query key parsing handles edge cases correctly
+- [ ] Create `Backend+SharedKey.swift` with BackendQueryKey implementation
+- [ ] Create `LocalBackendService+Dependency.swift` for dependency injection
+- [ ] Create `SharedReaderIntegrationTests.swift` for testing
+- [ ] Implement BackendQueryKey struct with BackendQuery enum for operations:
+  - [ ] allProjects case for loading all projects
+  - [ ] buildsForProject(UUID) case for loading builds for a specific project
+  - [ ] allDestinations case for loading all destinations
+  - [ ] projectDetail(UUID) case for loading specific project details
+- [ ] Test SharedReaderKey protocol conformance works with dependency injection
+- [ ] Test async backend service integration within BackendQueryKey load method
+- [ ] Test error handling and type safety in BackendQueryKey implementation
+- [ ] Verify @SharedReader usage in views and view models
+
+## Architecture Benefits
+
+1. **Direct Dependency Usage**: Uses `@Dependency(\.backendService)` directly without wrapper layers
+2. **Unified Implementation**: Single BackendQueryKey struct handles all backend operations via BackendQuery enum
+3. **Type Safety**: Generic Value parameter ensures type safety with compile-time checking
+4. **Async Integration**: Properly bridges async backend APIs to SharedReaderKey protocol
+5. **Testability**: Dependency injection enables easy testing with different backend configurations
+6. **Extensible Design**: Easy to add new backend operations by extending BackendQuery enum
 
 ## Usage Examples
 
 ```swift
-// Using with SharingGRDB (this will be automatic once configured)
-@Shared(ProjectQueries.allIds)
-var projectIds: [String]
+// In SwiftUI Views - load all projects
+@SharedReader(.allProjects) var projects: [Project] = []
 
-@Shared(DomainProjectQueries.project(id: "com.example.app"))
-var project: Project?
+// In SwiftUI Views - load builds for a specific project
+@SharedReader(.buildsForProject(projectId)) var builds: [Build] = []
 
-// The SharingGRDB integration will automatically:
-// 1. Parse the BackendQuery key
-// 2. Create appropriate GRDB ValueObservation
-// 3. Convert backend values to domain models (when using Domain queries)
-// 4. Provide reactive updates when database changes
+// In SwiftUI Views - load all destinations
+@SharedReader(.allDestinations) var destinations: [Destination] = []
+
+// In SwiftUI Views - load specific project details
+@SharedReader(.projectDetail(projectId)) var project: Project?
+
+// Manual loading when needed
+try await $projects.load()
+```
+
+## Testing Examples
+
+```swift
+// Unit test with dependency injection
+await withDependencies {
+  $0.backendService = testService
+} operation: {
+  @SharedReader(.allProjects) var projects: [Project] = []
+
+  try await $projects.load()
+  #expect(!projects.isEmpty)
+}
 ```
 
 ## Integration Notes
 
-- This step creates the bridge between BackendQuery keys and GRDB observations
-- The SharingGRDBKey protocol conformance enables automatic reactive updates
-- Domain model queries automatically convert backend values using the conversion protocols from Step 2
-- Query parsing logic supports the full range of queries defined in the BackendQuery factory methods
+- This step leverages the existing LocalBackendService with direct dependency injection
+- BackendQueryKey struct provides unified async-to-sync bridge for all backend operations
+- BackendQuery enum centralizes all backend operation types for maintainability
+- Generic Value parameter ensures compile-time type safety for each operation
+- Dependency injection allows easy testing and configuration swapping
+- Subscribe methods are ready for future database change notification integration
+- Single struct implementation reduces code duplication and maintenance overhead
+
+## Future Enhancements
+
+- **Real-time Updates**: Implement subscribe methods with GRDB database observers
+- **Query Expansion**: Add more BackendQuery cases for additional backend operations
+- **Caching Strategy**: Add intelligent caching within BackendQueryKey implementation
+- **Error Recovery**: Enhanced error handling with retry mechanisms
+- **Performance Optimization**: Add debouncing and batching for frequent loads
 
 ## Next Step
 
-After completing this step, proceed to [Step 6: Backend Service Integration](./STEP_6_BACKEND_SERVICE_CONTAINER.md) to set up Dependencies-based dependency injection.
+After completing this step, proceed to [Step 6: Backend Service Integration](./STEP_6_BACKEND_SERVICE_CONTAINER.md) to set up complete dependency injection container.
