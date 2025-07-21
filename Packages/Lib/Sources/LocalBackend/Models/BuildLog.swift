@@ -1,5 +1,6 @@
 import Foundation
 import SharingGRDB
+import Core
 
 @Table("buildLogs")
 public struct BuildLog: Identifiable, Sendable {

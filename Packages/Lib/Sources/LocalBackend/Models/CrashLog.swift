@@ -1,5 +1,6 @@
 import Foundation
 import SharingGRDB
+import Core
 
 public enum CrashLogRole: String, Codable, Sendable, Hashable, CaseIterable, QueryBindable {
     case foreground

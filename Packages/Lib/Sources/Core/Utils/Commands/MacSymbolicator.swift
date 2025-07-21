@@ -77,7 +77,7 @@ public struct MacSymbolicator {
         
         let version = Version(version: String(versionString), buildNumber: buildNumber)
         
-        var crashLog = CrashLog(
+        var crashLog = CrashLogValue(
             incidentIdentifier: incidentIdentifier,
             isMainThread: isMainThread,
             createdAt: Date(),

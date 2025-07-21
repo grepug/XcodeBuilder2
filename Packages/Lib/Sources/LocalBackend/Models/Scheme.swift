@@ -1,5 +1,6 @@
 import Foundation
 import SharingGRDB
+import Core
 
 @Table
 public struct Scheme: Codable, Sendable, Hashable, Identifiable, Comparable {

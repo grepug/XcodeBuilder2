@@ -36,6 +36,10 @@ public protocol BuildModelProtocol: Sendable, Identifiable {
     var osVersion: String { get }
     var memory: Int { get }
     var processor: String { get }
+    
+    // Computed properties for compatibility
+    var version: Version { get }
+    var projectDirName: String { get }
 }
 
 public protocol BuildLogProtocol: Sendable, Identifiable {
@@ -139,6 +143,15 @@ public struct BuildModelValue: BuildModelProtocol {
     public let osVersion: String
     public let memory: Int
     public let processor: String
+    
+    // Computed properties
+    public var version: Version {
+        Version(version: versionString, buildNumber: buildNumber)
+    }
+    
+    public var projectDirName: String {
+        "\(versionString)_\(buildNumber)"
+    }
 
     public init(
         id: UUID = UUID(),
@@ -204,7 +217,7 @@ public struct CrashLogValue: CrashLogProtocol {
     public let incidentIdentifier: String
     public let isMainThread: Bool
     public let createdAt: Date
-    public let buildId: UUID
+    public var buildId: UUID
     public let content: String
     public let hardwareModel: String
     public let process: String
@@ -249,4 +262,57 @@ public struct CrashLogValue: CrashLogProtocol {
         self.fixed = fixed
         self.priority = priority
     }
+}
+
+// MARK: - Supporting Enums (Backend-Agnostic)
+
+public enum BuildStatus: String, Codable, Sendable, Hashable, CaseIterable {
+    case queued
+    case running
+    case completed
+    case failed
+    case cancelled
+    
+    public var title: String {
+        switch self {
+        case .queued: "Queued"
+        case .running: "Running"
+        case .completed: "Completed"
+        case .failed: "Failed"
+        case .cancelled: "Cancelled"
+        }
+    }
+}
+
+public enum CrashLogRole: String, Codable, Sendable, Hashable, CaseIterable {
+    case foreground
+    case background
+}
+
+public enum CrashLogPriority: String, Codable, Sendable, Hashable, CaseIterable {
+    case urgent
+    case high
+    case medium
+    case low
+}
+
+// MARK: - Log Categories
+public enum BuildLogCategory: String, Codable, Sendable, Hashable, CaseIterable {
+    case clone
+    case resolveDependencies
+    case archive
+    case export
+    case cleanup
+}
+
+// MARK: - Type Aliases for Backward Compatibility
+public typealias Project = any ProjectProtocol
+public typealias Scheme = any SchemeProtocol
+public typealias BuildModel = any BuildModelProtocol
+public typealias CrashLog = any CrashLogProtocol
+public typealias BuildLog = any BuildLogProtocol
+
+// MARK: - Nested type aliases for compatibility
+public enum BuildLogCompat {
+    public typealias Level = BuildLogLevel
 }

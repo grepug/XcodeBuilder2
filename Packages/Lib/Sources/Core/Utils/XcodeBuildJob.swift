@@ -184,10 +184,10 @@ private extension XcodeBuildJob {
         payload.scheme
     }
 
-    func log(_ content: String, _ category: XcodeBuildJobLogCategory, at level: BuildLog.Level = .info) {
+    func log(_ content: String, _ category: XcodeBuildJobLogCategory, at level: BuildLogLevel = .info) {
         let timestamp = DateFormatter.logFormatter.string(from: Date())
         let formattedContent = "[\(timestamp)] \(content)"
-        let logEntry = BuildLog(buildId: payload.buildId, category: category.rawValue, content: formattedContent, level: level)
+        let logEntry = BuildLogValue(buildId: payload.buildId, category: category.rawValue, level: level, content: formattedContent)
         log(logEntry)
     }
     

@@ -1,5 +1,6 @@
 import Foundation
 import SharingGRDB
+import Core
 import SwiftUI
 
 public enum BuildStatus: String, Codable, Sendable, Hashable, QueryBindable {

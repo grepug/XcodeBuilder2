@@ -7,6 +7,7 @@
 
 import Foundation
 import SharingGRDB
+import Core
 
 @Table
 public struct Project: Codable, Sendable, Hashable, Identifiable {
