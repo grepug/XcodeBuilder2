@@ -48,26 +48,15 @@ Packages/Lib/
 ├── Sources/
 │   ├── Core/
 │   │   ├── Models/
-│   │   │   ├── Build.swift                                    # Domain model
-│   │   │   ├── BuildLog.swift                                 # Domain model
-│   │   │   ├── CrashLog.swift                                 # Domain model
-│   │   │   ├── Database.swift                                 # Domain model
-│   │   │   ├── Destination.swift                              # Domain model
-│   │   │   ├── ExportOption.swift                             # Domain model
-│   │   │   ├── Project.swift                                  # Domain model
-│   │   │   ├── Scheme.swift                                   # Domain model
-│   │   │   ├── Build+BackendConversion.swift                  # Backend conversion extension
-│   │   │   ├── BuildLog+BackendConversion.swift               # Backend conversion extension
-│   │   │   ├── CrashLog+BackendConversion.swift               # Backend conversion extension
-│   │   │   ├── Project+BackendConversion.swift                # Backend conversion extension
-│   │   │   └── Scheme+BackendConversion.swift                 # Backend conversion extension
+│   │   │   ├── Database.swift                                 # Domain model (existing, no SharingGRDB)
+│   │   │   ├── Destination.swift                              # Domain model (existing, no SharingGRDB)
+│   │   │   └── ExportOption.swift                             # Domain model (existing, no SharingGRDB)
 │   │   ├── Services/
 │   │   │   ├── BackendModels.swift                            # Protocols & value types
 │   │   │   ├── BackendServiceProtocol.swift                   # Core service protocol
 │   │   │   ├── BackendType.swift                              # Backend type protocol
-│   │   │   ├── BackendConversions.swift                       # Conversion protocols
-│   │   │   ├── BackendConversionUtilities.swift               # Conversion utilities
-│   │   │   ├── BackendServiceRegistry.swift                  # Service registry
+│   │   │   ├── BackendConversions.swift                       # Protocol conversion extensions
+│   │   │   ├── BackendServiceRegistry.swift                   # Service registry
 │   │   │   ├── BackendServiceSharing.swift                    # SharingKey integration
 │   │   │   ├── BackendServiceProvider.swift                   # Provider protocol
 │   │   │   ├── BackendInitializer.swift                       # Setup helpers
@@ -77,17 +66,26 @@ Packages/Lib/
 │   │   │   ├── BackendQuery+SharingKey.swift                  # SharingKey conformance
 │   │   │   ├── BackendQueryExtensions.swift                   # Type-safe builders
 │   │   │   └── BackendQueryUsage.swift                        # Documentation & examples
-│   │   ├── Requests/
-│   │   │   ├── AllProjectRequest.swift                        # Existing request
-│   │   │   └── ProjectDetailRequest.swift                     # Existing request
 │   │   └── Utils/
 │   │       └── ... (existing utility files)
 │   └── LocalBackend/
 │       ├── Models/
-│       │   ├── GRDBModels.swift                               # GRDB record conformance
-│       │   └── GRDBAssociations.swift                         # GRDB model relationships
+│       │   ├── Project.swift                                  # SharingGRDB @Table struct (moved from Core)
+│       │   ├── Scheme.swift                                   # SharingGRDB @Table struct (moved from Core)
+│       │   ├── Build.swift                                    # SharingGRDB @Table struct (moved from Core)
+│       │   ├── BuildLog.swift                                 # SharingGRDB @Table struct (moved from Core)
+│       │   ├── CrashLog.swift                                 # SharingGRDB @Table struct (moved from Core)
+│       │   ├── GRDBAssociations.swift                         # GRDB model relationships
+│       │   ├── Project+LocalBackend.swift                     # GRDB Project → ProjectValue conversion
+│       │   ├── Scheme+LocalBackend.swift                      # GRDB Scheme → SchemeValue conversion
+│       │   ├── Build+LocalBackend.swift                       # GRDB Build → BuildModelValue conversion
+│       │   ├── BuildLog+LocalBackend.swift                    # GRDB BuildLog → BuildLogValue conversion
+│       │   └── CrashLog+LocalBackend.swift                    # GRDB CrashLog → CrashLogValue conversion
 │       ├── Database/
 │       │   └── DatabaseMigration.swift                        # Table creation & migration
+│       ├── Requests/
+│       │   ├── AllProjectRequest.swift                        # FetchKeyRequest impl (moved from Core)
+│       │   └── ProjectDetailRequest.swift                     # FetchKeyRequest impl (moved from Core)
 │       ├── SharingKeys/
 │       │   ├── BackendQuery+SharingGRDB.swift                 # SharingGRDB protocol conformance
 │       │   ├── DomainModelQuerySupport.swift                  # Domain model query support
@@ -111,10 +109,12 @@ Packages/Lib/
 
 #### Package Configuration
 
-- **Core Target**: Domain models, protocols, SharingKeys, services
+- **Core Target**: Backend protocols, value types, SharingKeys, services
   - Dependencies: `swift-sharing`
+  - **No SharingGRDB dependency** - stays backend-agnostic
 - **LocalBackend Target**: SharingGRDB adapter implementation
   - Dependencies: `Core`, `GRDB.swift`, `SharingGRDB`
+  - Contains all SharingGRDB-specific models and code
 
 ## Implementation Steps
 
