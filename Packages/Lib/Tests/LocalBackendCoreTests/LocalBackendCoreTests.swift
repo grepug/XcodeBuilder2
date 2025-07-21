@@ -73,7 +73,21 @@ struct LocalBackendCoreTests {
         let service = createTestService()
         let project = createTestProject()
         
+        // Create project
         try await service.createProject(project)
+        
+        // Verify project was actually created by fetching it from the service
+        let projectStream = service.streamProject(id: project.bundleIdentifier)
+        var fetchedProject: ProjectValue?
+        
+        for try await projectValue in projectStream {
+            fetchedProject = projectValue
+            break  // Get the first (and likely only) result
+        }
+        
+        #expect(fetchedProject != nil)
+        #expect(fetchedProject?.bundleIdentifier == "com.test.app")
+        #expect(fetchedProject?.name == "TestApp")
     }
     
     @Test("Update project")  
@@ -96,6 +110,20 @@ struct LocalBackendCoreTests {
         )
         
         try await service.updateProject(updatedProject)
+        
+        // Verify the update was successful by fetching the updated project
+        let projectStream = service.streamProject(id: project.bundleIdentifier)
+        var fetchedProject: ProjectValue?
+        
+        for try await projectValue in projectStream {
+            fetchedProject = projectValue
+            break
+        }
+        
+        #expect(fetchedProject != nil)
+        #expect(fetchedProject?.name == "UpdatedApp")
+        #expect(fetchedProject?.displayName == "Updated Test Application")
+        #expect(fetchedProject?.bundleIdentifier == project.bundleIdentifier)
     }
     
     @Test("Delete project")
@@ -108,6 +136,17 @@ struct LocalBackendCoreTests {
         
         // Delete project
         try await service.deleteProject(id: project.bundleIdentifier)
+        
+        // Verify project was actually deleted by trying to fetch it
+        let projectStream = service.streamProject(id: project.bundleIdentifier)
+        var fetchedProject: ProjectValue?
+        
+        for try await projectValue in projectStream {
+            fetchedProject = projectValue
+            break
+        }
+        
+        #expect(fetchedProject == nil)  // Should be nil after deletion
     }
     
     // MARK: - Scheme CRUD Tests
@@ -123,6 +162,20 @@ struct LocalBackendCoreTests {
         
         // Create scheme
         try await service.createScheme(scheme)
+
+        // Verify scheme was actually created by fetching it from the service
+        let schemeStream = service.streamScheme(id: scheme.id)
+        var fetchedScheme: SchemeValue?
+        
+        for try await schemeValue in schemeStream {
+            fetchedScheme = schemeValue
+            break
+        }
+        
+        #expect(fetchedScheme != nil)
+        #expect(fetchedScheme?.name == "TestScheme")
+        #expect(fetchedScheme?.projectBundleIdentifier == project.bundleIdentifier)
+        #expect(fetchedScheme?.platforms.contains(.iOS) == true)
     }
     
     // MARK: - Update scheme test disabled due to database constraint
@@ -143,6 +196,17 @@ struct LocalBackendCoreTests {
         
         // Delete scheme
         try await service.deleteScheme(id: scheme.id)
+        
+        // Verify scheme was actually deleted by trying to fetch it
+        let schemeStream = service.streamScheme(id: scheme.id)
+        var fetchedScheme: SchemeValue?
+        
+        for try await schemeValue in schemeStream {
+            fetchedScheme = schemeValue
+            break
+        }
+        
+        #expect(fetchedScheme == nil)  // Should be nil after deletion
     }
     
     // MARK: - Build CRUD Tests
@@ -160,6 +224,21 @@ struct LocalBackendCoreTests {
         
         // Create build
         try await service.createBuild(build)
+        
+        // Verify build was actually created by fetching it from the service
+        let buildStream = service.streamBuild(id: build.id)
+        var fetchedBuild: BuildModelValue?
+        
+        for try await buildValue in buildStream {
+            fetchedBuild = buildValue
+            break
+        }
+        
+        #expect(fetchedBuild != nil)
+        #expect(fetchedBuild?.versionString == "1.0.0")
+        #expect(fetchedBuild?.buildNumber == 1)
+        #expect(fetchedBuild?.status == .completed)
+        #expect(fetchedBuild?.schemeId == scheme.id)
     }
     
     // MARK: - Integration Tests
@@ -184,6 +263,32 @@ struct LocalBackendCoreTests {
         try await service.deleteBuild(id: build.id)
         try await service.deleteScheme(id: scheme.id)
         try await service.deleteProject(id: project.bundleIdentifier)
+        
+        // Verify all entities were deleted successfully
+        let projectStream = service.streamProject(id: project.bundleIdentifier)
+        var deletedProject: ProjectValue?
+        for try await projectValue in projectStream {
+            deletedProject = projectValue
+            break
+        }
+        
+        let schemeStream = service.streamScheme(id: scheme.id)
+        var deletedScheme: SchemeValue?
+        for try await schemeValue in schemeStream {
+            deletedScheme = schemeValue
+            break
+        }
+        
+        let buildStream = service.streamBuild(id: build.id)
+        var deletedBuild: BuildModelValue?
+        for try await buildValue in buildStream {
+            deletedBuild = buildValue
+            break
+        }
+        
+        #expect(deletedProject == nil)
+        #expect(deletedScheme == nil)
+        #expect(deletedBuild == nil)
     }
     
     // MARK: - Error Handling Tests
@@ -194,5 +299,16 @@ struct LocalBackendCoreTests {
         
         // Should not throw when deleting non-existent project
         try await service.deleteProject(id: "non.existent.project")
+
+        // Verify that the non-existent project ID is not in the project list
+        let projectIdsStream = service.streamAllProjectIds()
+        var allProjectIds: [String] = []
+        
+        for try await projectIds in projectIdsStream {
+            allProjectIds = projectIds
+            break
+        }
+        
+        #expect(!allProjectIds.contains("non.existent.project"))  // Should not contain deleted/non-existent ID
     }
 }
