@@ -140,10 +140,19 @@ struct EntryView: View {
                     }
                 }
                 
-                try! await db.write {
-                    try CrashLog
-                        .insert { log }
-                        .execute($0)
+                do {
+                    try await db.write {
+                        try CrashLog
+                            .insert { log }
+                            .execute($0)
+                    }
+                } catch {
+                    if error.localizedDescription.contains("UNIQUE constraint failed") {
+                        // Ignore if the crash log already exists
+                        print("Crash log already exists, ignoring.")
+                    } else {
+                        assertionFailure("Failed to save crash log: \(error)")
+                    }
                 }
             } catch {
                 print("Failed to handle dropped crash log content: \(error)")

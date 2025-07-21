@@ -17,13 +17,19 @@ import AppKit
 struct CrashLogContentViewContainer: View {
     let id: String
     
-    @FetchOne var fetchedCrashLog: CrashLog?
-    @State private var crashLog: CrashLog = .init()
+    @State @FetchOne var fetchedCrashLog: CrashLog?
+    @State private var crashLog: CrashLog
+    
+    init(id: String) {
+        self.id = id
+        _fetchedCrashLog = .init(wrappedValue: .init(wrappedValue: nil, CrashLog.where { $0.incidentIdentifier == id }))
+        _crashLog = .init(wrappedValue: .init(incidentIdentifier: id))
+    }
     
     var body: some View {
         CrashLogContentView(crashLog: $crashLog)
             .task(id: id) {
-                try! await $fetchedCrashLog.load(
+                try! await $fetchedCrashLog.wrappedValue.load(
                     CrashLog.where { $0.incidentIdentifier == id }
                 )
             }
@@ -34,26 +40,31 @@ struct CrashLogContentViewContainer: View {
             }
             .task(id: [crashLog, id] as [AnyHashable]) {
                 let crashLog = crashLog
+                let id = id
                 
                 guard crashLog.id == id else {
                     return
                 }
                 
-                guard crashLog != .init() else {
+                guard crashLog != fetchedCrashLog else {
                     return
                 }
                 
                 @Dependency(\.defaultDatabase) var db
                 
-                try! await db.write {
-                    try CrashLog
-                        .where { $0.incidentIdentifier == id }
-                        .update {
-                            $0.priority = crashLog.priority
-                            $0.note = crashLog.note
-                            $0.fixed = crashLog.fixed
-                        }
-                        .execute($0)
+                do {
+                    try await db.write {
+                        try CrashLog
+                            .where { $0.incidentIdentifier == id }
+                            .update {
+                                $0.priority = crashLog.priority
+                                $0.note = crashLog.note
+                                $0.fixed = crashLog.fixed
+                            }
+                            .execute($0)
+                    }
+                } catch is CancellationError {} catch {
+                    assertionFailure()
                 }
             }
     }
