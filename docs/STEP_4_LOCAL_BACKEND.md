@@ -54,7 +54,7 @@ public struct DatabaseManager {
         return dbWriter
     }
 
-    private static func runMigrations(_ dbWriter: DatabaseWriter) throws {
+    public static func runMigrations(_ dbWriter: DatabaseWriter) throws {
         var migrator = DatabaseMigrator()
 
         migrator.registerMigration("v1.0") { db in
@@ -239,7 +239,7 @@ public struct LocalBackendService: BackendService {
                 projectBundleIdentifier: scheme.projectBundleIdentifier,
                 name: scheme.name,
                 platforms: scheme.platforms,
-                orderIndex: scheme.order
+                order: scheme.order
             )
             try dbScheme.insert(db)
         }
@@ -252,7 +252,7 @@ public struct LocalBackendService: BackendService {
                 projectBundleIdentifier: scheme.projectBundleIdentifier,
                 name: scheme.name,
                 platforms: scheme.platforms,
-                orderIndex: scheme.order
+                order: scheme.order
             )
             try dbScheme.update(db)
         }
@@ -268,7 +268,7 @@ public struct LocalBackendService: BackendService {
 
     public func createBuild(_ build: BuildModelValue) async throws {
         try await db.write { db in
-            let dbBuild = Build(
+            let dbBuild = BuildModel(
                 id: build.id,
                 schemeId: build.schemeId,
                 versionString: build.versionString,
@@ -280,7 +280,7 @@ public struct LocalBackendService: BackendService {
                 status: build.status,
                 progress: build.progress,
                 commitHash: build.commitHash,
-                deviceMetadata: build.deviceMetadata,
+                deviceModel: build.deviceMetadata,
                 osVersion: build.osVersion,
                 memory: build.memory,
                 processor: build.processor
@@ -291,7 +291,7 @@ public struct LocalBackendService: BackendService {
 
     public func updateBuild(_ build: BuildModelValue) async throws {
         try await db.write { db in
-            let dbBuild = Build(
+            let dbBuild = BuildModel(
                 id: build.id,
                 schemeId: build.schemeId,
                 versionString: build.versionString,
@@ -303,7 +303,7 @@ public struct LocalBackendService: BackendService {
                 status: build.status,
                 progress: build.progress,
                 commitHash: build.commitHash,
-                deviceMetadata: build.deviceMetadata,
+                deviceModel: build.deviceMetadata,
                 osVersion: build.osVersion,
                 memory: build.memory,
                 processor: build.processor
@@ -314,7 +314,7 @@ public struct LocalBackendService: BackendService {
 
     public func deleteBuild(id: UUID) async throws {
         try await db.write { db in
-            try Build
+            try BuildModel
                 .where { $0.id == id }
                 .delete(db)
         }
@@ -326,9 +326,8 @@ public struct LocalBackendService: BackendService {
                 id: log.id,
                 buildId: log.buildId,
                 category: log.category,
-                level: log.level,
-                logContent: log.content,
-                createdAt: log.createdAt
+                content: log.content,
+                level: log.level
             )
             try dbLog.insert(db)
         }
@@ -445,7 +444,7 @@ public extension LocalBackendService {
         @FetchAll(
             Scheme
                 .where { $0.projectBundleIdentifier == projectId }
-                .order { $0.orderIndex }
+                .order { $0.order }
                 .select(\.id)
         ) var schemeIds: [UUID]
 
@@ -466,15 +465,15 @@ public extension LocalBackendService {
                     projectBundleIdentifier: dbScheme.projectBundleIdentifier,
                     name: dbScheme.name,
                     platforms: dbScheme.platforms,
-                    order: dbScheme.orderIndex
+                    order: dbScheme.order
                 )
             }
     }
 
     func streamBuildIds(schemeIds: [UUID], versionString: String?) -> some AsyncSequence<[UUID]> {
         @FetchAll(
-            Build.all
-                .where { schemeIds.map(\.uuidString).contains($0.schemeId) }
+            BuildModel.all
+                .where { $0.schemeId.in(schemeIds) }
                 .where { versionString == nil || $0.versionString == versionString }
                 .order { $0.createdAt.desc }
                 .select(\.id)
@@ -485,9 +484,9 @@ public extension LocalBackendService {
 
     func streamBuild(id: UUID) -> some AsyncSequence<BuildModelValue?> {
         @FetchOne(
-            Build
+            BuildModel
                 .where { $0.id == id }
-        ) var build: Build?
+        ) var build: BuildModel?
 
         return $build.publisher.values
             .map { dbBuild -> BuildModelValue? in
@@ -504,7 +503,7 @@ public extension LocalBackendService {
                     status: dbBuild.status,
                     progress: dbBuild.progress,
                     commitHash: dbBuild.commitHash,
-                    deviceMetadata: dbBuild.deviceMetadata,
+                    deviceMetadata: dbBuild.deviceModel,
                     osVersion: dbBuild.osVersion,
                     memory: dbBuild.memory,
                     processor: dbBuild.processor
@@ -544,7 +543,7 @@ public extension LocalBackendService {
                     buildId: dbLog.buildId,
                     category: dbLog.category,
                     level: dbLog.level,
-                    content: dbLog.logContent,
+                    content: dbLog.content,
                     createdAt: dbLog.createdAt
                 )
             }
@@ -626,7 +625,7 @@ private struct ProjectVersionStringsRequest: FetchKeyRequest {
                 .fetchAll(db)
 
             let schemeIds = schemes.map(\.id)
-            let builds = try Build
+            let builds = try BuildModel
                 .where { $0.schemeId.in(schemeIds) }
                 .fetchAll(db)
 
@@ -664,7 +663,7 @@ private struct LatestBuildsRequest: FetchKeyRequest {
         let schemeIds = schemes.map(\.id)
 
         // Get latest builds
-        let builds = try Build
+        let builds = try BuildModel
             .where { $0.schemeId.in(schemeIds) }
             .order { $0.createdAt.desc() }
             .limit(limit)
@@ -683,7 +682,7 @@ private struct LatestBuildsRequest: FetchKeyRequest {
                 status: build.status,
                 progress: build.progress,
                 commitHash: build.commitHash,
-                deviceMetadata: build.deviceMetadata,
+                deviceMetadata: build.deviceModel,
                 osVersion: build.osVersion,
                 memory: build.memory,
                 processor: build.processor
@@ -730,7 +729,7 @@ private struct ProjectDetailRequest: FetchKeyRequest {
             .fetchAll(db)
         let schemeIds = schemes.map(\.id)
 
-        let builds = try Build
+        let builds = try BuildModel
             .where { $0.schemeId.in(schemeIds) }
             .order { $0.createdAt.desc() }
             .limit(5)
@@ -769,7 +768,7 @@ private struct BuildVersionStringsRequest: FetchKeyRequest {
             .fetchAll(db)
 
         let schemeIds = schemes.map(\.id)
-        let builds = try Build
+        let builds = try BuildModel
             .where { $0.schemeId.in(schemeIds) }
             .fetchAll(db)
 
@@ -1200,7 +1199,7 @@ struct LocalBackendServiceReactiveTests {
         @FetchAll(
             Scheme
                 .where { $0.projectBundleIdentifier == "com.example.complex" }
-                .order { $0.orderIndex }
+                .order { $0.order }
         ) var projectSchemes: [Scheme]
 
         try await $projectSchemes.load()
@@ -1263,14 +1262,9 @@ import Foundation
 @Suite("LocalBackend Performance Tests")
 struct LocalBackendPerformanceTests {
 
-    private func createTestService() throws -> LocalBackendService {
-        let dbWriter = try DatabaseManager.setupInMemoryDatabase()
-        return LocalBackendService(dbWriter: dbWriter)
-    }
-
-    @Test("Bulk operations performance")
+    @Test("Bulk operations performance", .dependency(\.defaultDatabase, try DatabaseManager.setupInMemoryDatabase()))
     func testBulkOperationsPerformance() async throws {
-        let service = try createTestService()
+        @Dependency(\.backendService) var service
 
         let startTime = Date()
 
@@ -1307,9 +1301,9 @@ struct LocalBackendPerformanceTests {
         #expect(retrievalTime < 0.1, "Retrieval should complete within 0.1 seconds")
     }
 
-    @Test("Reactive stream performance with many updates")
+    @Test("Reactive stream performance with many updates", .dependency(\.defaultDatabase, try DatabaseManager.setupInMemoryDatabase()))
     func testReactiveStreamPerformance() async throws {
-        let service = try createTestService()
+        @Dependency(\.backendService) var service
 
         var updateCount = 0
         let expectedUpdates = 10
@@ -1351,9 +1345,9 @@ struct LocalBackendPerformanceTests {
         #expect(totalTime < 3.0, "Reactive updates should complete within 3 seconds")
     }
 
-    @Test("Query performance with indexes")
+    @Test("Query performance with indexes", .dependency(\.defaultDatabase, try DatabaseManager.setupInMemoryDatabase()))
     func testQueryPerformanceWithIndexes() async throws {
-        let service = try createTestService()
+        @Dependency(\.backendService) var service
 
         // Create test data with multiple builds per scheme
         let project = ProjectValue(
