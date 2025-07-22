@@ -146,13 +146,12 @@ public struct LocalBackendService: BackendService {
 
     public func createBuildLog(_ log: BuildLogValue) async throws {
         try await db.write { db in
-            let level = BuildLog.Level(rawValue: log.level.rawValue) ?? .info
             let dbLog = BuildLog(
                 id: log.id,
                 buildId: log.buildId,
                 category: log.category,
                 content: log.content,
-                level: level
+                level: log.level
             )
             try BuildLog.insert { dbLog }.execute(db)
         }
@@ -421,7 +420,7 @@ public extension LocalBackendService {
         @FetchAll(
             BuildLog
                 .where { $0.buildId == buildId }
-                .where { includeDebug || $0.level != BuildLog.Level.debug }
+                .where { includeDebug || $0.level != BuildLogLevel.debug }
                 .where { category == nil || $0.category == category }
                 .order(by: \.createdAt)
                 .select(\.id)

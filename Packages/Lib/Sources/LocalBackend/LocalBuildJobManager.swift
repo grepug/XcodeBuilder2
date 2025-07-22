@@ -226,17 +226,16 @@ public actor LocalBuildJobManager {
         }
     }
     
-    private func writeLog(buildId: UUID, coreLog: any Core.BuildLogProtocol) async {
+    private func writeLog(buildId: UUID, log: BuildLogValue) async {
         do {
             try await db.write { db in
                 // Convert Core.BuildLog to LocalBackend.BuildLog
-                let level = BuildLog.Level(rawValue: coreLog.level.rawValue) ?? .info
                 let dbLog = BuildLog(
-                    id: coreLog.id,
+                    id: log.id,
                     buildId: buildId,
-                    category: coreLog.category,
-                    content: coreLog.content,
-                    level: level
+                    category: log.category,
+                    content: log.content,
+                    level: log.level
                 )
                 try BuildLog
                     .insert { dbLog }

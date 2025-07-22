@@ -3,7 +3,7 @@ import SharingGRDB
 import Core
 
 @Table("builds")
-public struct BuildModel: Identifiable, Sendable, Hashable {
+public struct BuildModel: Identifiable, Sendable, Hashable, BuildModelProtocol {
     public var id: UUID
 
     @Column("scheme_id")
@@ -44,7 +44,7 @@ public struct BuildModel: Identifiable, Sendable, Hashable {
     @Column("export_options", as: [ExportOption].JSONRepresentation.self)
     public var exportOptions: [ExportOption]
     
-    var projectDirName: String {
+    public var projectDirName: String {
         "\(version.displayString)_\(id.uuidString.lowercased().prefix(6))"
     }
     

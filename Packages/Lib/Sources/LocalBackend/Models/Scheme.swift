@@ -34,3 +34,10 @@ public struct Scheme: Codable, Sendable, Hashable, Identifiable, Comparable, Sch
         self.order = order
     }
 }
+
+
+extension BuildLogLevel: QueryBindable {}
+
+extension CrashLogRole: QueryBindable {}
+
+extension CrashLogPriority: QueryBindable {}

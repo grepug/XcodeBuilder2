@@ -10,7 +10,7 @@ import SharingGRDB
 import Core
 
 @Table
-public struct Project: Codable, Sendable, Hashable, Identifiable {
+public struct Project: Codable, Sendable, Hashable, Identifiable, ProjectProtocol {
     @Column("bundle_identifier")
     public var bundleIdentifier: String
     

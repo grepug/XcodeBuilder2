@@ -2,20 +2,8 @@ import Foundation
 import SharingGRDB
 import Core
 
-public enum CrashLogRole: String, Codable, Sendable, Hashable, CaseIterable, QueryBindable {
-    case foreground
-    case background
-}
-
-public enum CrashLogPriority: String, Codable, Sendable, Hashable, CaseIterable, QueryBindable {
-    case urgent
-    case high
-    case medium
-    case low
-}
-
 @Table
-public struct CrashLog: Identifiable, Sendable, Hashable {
+public struct CrashLog: Identifiable, Sendable, Hashable, CrashLogProtocol {
     public var id: String {
         incidentIdentifier 
     }
