@@ -53,6 +53,15 @@ public protocol BackendService: Sendable {
     func streamCrashLog(id: String) -> CrashLogSequence
     func streamProjectDetail(id: String) -> ProjectDetailSequence
     func streamBuildVersionStrings(projectId: String) -> BuildVersionStringsSequence
+    
+    // MARK: - Build Job Operations (Step 6)
+    associatedtype BuildProgressSequence: AsyncSequence where BuildProgressSequence.Element == BuildProgressUpdate, BuildProgressSequence.Failure == Error
+    
+    func createBuildJob(payload: BuildJobPayload, buildModel: BuildModelValue) async throws
+    func startBuildJob(buildId: UUID) -> BuildProgressSequence  
+    func cancelBuildJob(buildId: UUID) async
+    func deleteBuildJob(buildId: UUID) async throws
+    func getBuildJobStatus(buildId: UUID) -> BuildJobStatus?
 }
 
 // MARK: - Data Transfer Objects

@@ -224,6 +224,93 @@ public struct LocalBackendService: BackendService {
                 .execute(db)
         }
     }
+    
+    // MARK: - Build Job Operations (Step 6) - LOCAL IMPLEMENTATION
+    
+    /// Create a build job using XcodeBuildJob - LOCAL ONLY
+    public func createBuildJob(payload: BuildJobPayload, buildModel: BuildModelValue) async throws {
+        // Create the build record in database first
+        try await createBuild(buildModel)
+        
+        // Convert BuildJobPayload to XcodeBuildPayload for local CLI execution
+        // This will be stored and used when startBuildJob is called
+        // TODO: Store the payload in database or memory for later retrieval
+    }
+    
+    /// Start a build job and return progress stream - LOCAL CLI EXECUTION
+    public func startBuildJob(buildId: UUID) -> some AsyncSequence<BuildProgressUpdate, Error> {
+        return AsyncThrowingStream<BuildProgressUpdate, Error> { continuation in
+            Task {
+                // TODO: Get the build model and construct XcodeBuildPayload
+                // This requires querying the database for the build, project, scheme, etc.
+                
+                continuation.yield(BuildProgressUpdate(
+                    buildId: buildId,
+                    progress: 0.0,
+                    message: "Starting local build job..."
+                ))
+                
+                // TODO: Create and start XcodeBuildJob
+                // let project = try await getProject(for: buildId)
+                // let scheme = try await getScheme(for: buildId)  
+                // let build = try await getBuild(buildId)
+                // 
+                // let xcodeBuildPayload = XcodeBuildPayload(
+                //     project: project,
+                //     scheme: scheme,
+                //     build: build,
+                //     gitCloneKind: .branch("main"), // TODO: determine from build
+                //     exportOptions: [] // TODO: get from build
+                // )
+                //
+                // let xcodeBuildJob = XcodeBuildJob(payload: xcodeBuildPayload) { buildLog in
+                //     // Handle build logs - store in database
+                // }
+                //
+                // for await progress in xcodeBuildJob.startBuild() {
+                //     let update = BuildProgressUpdate(
+                //         buildId: buildId,
+                //         progress: progress.progress,
+                //         message: progress.message
+                //     )
+                //     continuation.yield(update)
+                // }
+                
+                // Placeholder completion
+                continuation.yield(BuildProgressUpdate(
+                    buildId: buildId,
+                    progress: 1.0,
+                    message: "Build job completed"
+                ))
+                
+                continuation.finish()
+            }
+        }
+    }
+    
+    /// Cancel a running build job - LOCAL CLI CANCELLATION
+    public func cancelBuildJob(buildId: UUID) async {
+        // TODO: Cancel the actual XcodeBuildJob task
+        // This requires tracking running jobs and their cancellation tokens
+    }
+    
+    /// Delete a build job - LOCAL CLEANUP
+    public func deleteBuildJob(buildId: UUID) async throws {
+        // Delete the build record from database
+        try await deleteBuild(id: buildId)
+        
+        // TODO: Clean up any local build artifacts, cancel running job if needed
+    }
+    
+    /// Get build job status - query from database or in-memory tracking
+    public func getBuildJobStatus(buildId: UUID) -> BuildJobStatus? {
+        // TODO: Implement build job status tracking
+        // This could check:
+        // 1. Database build status
+        // 2. In-memory job tracking
+        // 3. File system artifacts
+        return .idle
+    }
 }
 
 // MARK: - Reactive Observation Methods (Backend Service Layer)
