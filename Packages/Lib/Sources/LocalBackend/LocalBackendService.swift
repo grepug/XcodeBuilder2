@@ -299,15 +299,7 @@ public extension LocalBackendService {
         return $project.publisher.values
             .map { dbProject -> ProjectValue? in
                 guard let dbProject = dbProject else { return nil }
-                return ProjectValue(
-                    bundleIdentifier: dbProject.bundleIdentifier,
-                    name: dbProject.name,
-                    displayName: dbProject.displayName,
-                    gitRepoURL: dbProject.gitRepoURL,
-                    xcodeprojName: dbProject.xcodeprojName,
-                    workingDirectoryURL: dbProject.workingDirectoryURL,
-                    createdAt: dbProject.createdAt
-                )
+                return dbProject.toValue()
             }
     }
 
@@ -336,13 +328,7 @@ public extension LocalBackendService {
         return $scheme.publisher.values
             .map { dbScheme -> SchemeValue? in
                 guard let dbScheme = dbScheme else { return nil }
-                return SchemeValue(
-                    id: dbScheme.id,
-                    projectBundleIdentifier: dbScheme.projectBundleIdentifier,
-                    name: dbScheme.name,
-                    platforms: dbScheme.platforms,
-                    order: dbScheme.order
-                )
+                return dbScheme.toValue()
             }
     }
 
@@ -361,13 +347,7 @@ public extension LocalBackendService {
         return $schemes.publisher.values
             .map { dbSchemes -> [SchemeValue] in
                 dbSchemes.map { dbScheme in
-                    SchemeValue(
-                        id: dbScheme.id,
-                        projectBundleIdentifier: dbScheme.projectBundleIdentifier,
-                        name: dbScheme.name,
-                        platforms: dbScheme.platforms,
-                        order: dbScheme.order
-                    )
+                    dbScheme.toValue()
                 }
             }
     }
@@ -393,21 +373,7 @@ public extension LocalBackendService {
         return $build.publisher.values
             .map { dbBuild -> BuildModelValue? in
                 guard let dbBuild = dbBuild else { return nil }
-                return BuildModelValue(
-                    id: dbBuild.id,
-                    schemeId: dbBuild.schemeId,
-                    version: dbBuild.version,
-                    createdAt: dbBuild.createdAt,
-                    startDate: dbBuild.startDate,
-                    endDate: dbBuild.endDate,
-                    exportOptions: dbBuild.exportOptions,
-                    status: Core.BuildStatus(rawValue: dbBuild.status.rawValue) ?? .queued,
-                    progress: dbBuild.progress,
-                    deviceMetadata: dbBuild.deviceMetadata,
-                    osVersion: dbBuild.osVersion,
-                    memory: dbBuild.memory,
-                    processor: dbBuild.processor
-                )
+                return dbBuild.toValue()
             }
     }
 
@@ -438,14 +404,7 @@ public extension LocalBackendService {
         return $buildLog.publisher.values
             .map { dbLog -> BuildLogValue? in
                 guard let dbLog = dbLog else { return nil }
-                return BuildLogValue(
-                    id: dbLog.id,
-                    buildId: dbLog.buildId,
-                    category: dbLog.category,
-                    level: Core.BuildLogLevel(rawValue: dbLog.level.rawValue) ?? .info,
-                    content: dbLog.content,
-                    createdAt: dbLog.createdAt
-                )
+                return dbLog.toValue()
             }
     }
 
@@ -469,22 +428,7 @@ public extension LocalBackendService {
         return $crashLog.publisher.values
             .map { dbCrashLog -> CrashLogValue? in
                 guard let dbCrashLog = dbCrashLog else { return nil }
-                return CrashLogValue(
-                    incidentIdentifier: dbCrashLog.incidentIdentifier,
-                    isMainThread: dbCrashLog.isMainThread,
-                    createdAt: dbCrashLog.createdAt,
-                    buildId: dbCrashLog.buildId,
-                    content: dbCrashLog.content,
-                    hardwareModel: dbCrashLog.hardwareModel,
-                    process: dbCrashLog.process,
-                    role: Core.CrashLogRole(rawValue: dbCrashLog.role.rawValue) ?? .foreground,
-                    dateTime: dbCrashLog.dateTime,
-                    launchTime: dbCrashLog.launchTime,
-                    osVersion: dbCrashLog.osVersion,
-                    note: dbCrashLog.note,
-                    fixed: dbCrashLog.fixed,
-                    priority: Core.CrashLogPriority(rawValue: dbCrashLog.priority.rawValue) ?? .medium
-                )
+                return dbCrashLog.toValue()
             }
     }
 
@@ -494,15 +438,7 @@ public extension LocalBackendService {
 
         return $projectDetail.publisher.values.compactMap { result -> ProjectDetailData? in
             guard let result = result else { return nil }
-            let projectValue = ProjectValue(
-                bundleIdentifier: result.project.bundleIdentifier,
-                name: result.project.name,
-                displayName: result.project.displayName,
-                gitRepoURL: result.project.gitRepoURL,
-                xcodeprojName: result.project.xcodeprojName,
-                workingDirectoryURL: result.project.workingDirectoryURL,
-                createdAt: result.project.createdAt
-            )
+            let projectValue = result.project.toValue()
             return ProjectDetailData(
                 project: projectValue,
                 schemeIds: result.schemes.map(\.id),
@@ -589,21 +525,7 @@ private struct LatestBuildsRequest: FetchKeyRequest {
             .fetchAll(db)
 
         let buildModelValues = builds.map { build in
-            BuildModelValue(
-                id: build.id,
-                schemeId: build.schemeId,
-                version: build.version,
-                createdAt: build.createdAt,
-                startDate: build.startDate,
-                endDate: build.endDate,
-                exportOptions: build.exportOptions,
-                status: Core.BuildStatus(rawValue: build.status.rawValue) ?? .queued,
-                progress: build.progress,
-                deviceMetadata: build.deviceMetadata,
-                osVersion: build.osVersion,
-                memory: build.memory,
-                processor: build.processor
-            )
+            build.toValue()
         }
 
         return Value(builds: buildModelValues)
