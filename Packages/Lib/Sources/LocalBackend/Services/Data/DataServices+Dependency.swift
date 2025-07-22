@@ -27,16 +27,20 @@ extension DependencyValues {
 
 private enum ProjectDataServiceKey: DependencyKey {
     static let liveValue = ProjectDataService()
+    static let testValue = ProjectDataService()
 }
 
 private enum SchemeDataServiceKey: DependencyKey {
     static let liveValue = SchemeDataService()
+    static let testValue = SchemeDataService()
 }
 
 private enum BuildDataServiceKey: DependencyKey {
     static let liveValue = BuildDataService()
+    static let testValue = BuildDataService()
 }
 
 private enum LogDataServiceKey: DependencyKey {
     static let liveValue = LogDataService()
+    static let testValue = LogDataService()
 }

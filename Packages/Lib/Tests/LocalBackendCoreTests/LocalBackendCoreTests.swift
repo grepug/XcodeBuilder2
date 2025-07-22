@@ -17,8 +17,9 @@ struct LocalBackendCoreTests {
     }
     
     private func createTestProject() -> ProjectValue {
-        ProjectValue(
-            bundleIdentifier: "com.test.app",
+        let uniqueId = UUID().uuidString.prefix(8)
+        return ProjectValue(
+            bundleIdentifier: "com.test.app.\(uniqueId)",
             name: "TestApp",
             displayName: "Test Application",
             gitRepoURL: URL(string: "https://github.com/test/app.git")!,
@@ -88,7 +89,7 @@ struct LocalBackendCoreTests {
         }
         
         #expect(fetchedProject != nil)
-        #expect(fetchedProject?.bundleIdentifier == "com.test.app")
+        #expect(fetchedProject?.bundleIdentifier == project.bundleIdentifier)
         #expect(fetchedProject?.name == "TestApp")
     }
     

@@ -13,6 +13,12 @@ public struct LocalBackendService: BackendService {
     @Dependency(\.schemeDataService) private var schemeService
     @Dependency(\.buildDataService) private var buildService
     @Dependency(\.logDataService) private var logService
+    
+    // Internal streaming services - not exposed in public API
+    @Dependency(\.projectStreamingService) private var projectStreamingService
+    @Dependency(\.schemeStreamingService) private var schemeStreamingService
+    @Dependency(\.buildStreamingService) private var buildStreamingService
+    @Dependency(\.logStreamingService) private var logStreamingService
 
     public init() {
         // Dependencies injection handles database access and build job management
@@ -131,292 +137,66 @@ public struct LocalBackendService: BackendService {
 public extension LocalBackendService {
 
     func streamAllProjectIds() -> some AsyncSequence<[String], Never> {
-        @FetchAll(
-            Project.all
-                .order(by: \.createdAt)
-                .select(\.bundleIdentifier)
-        ) var projectIds: [String]
-
-        return $projectIds.publisher.values
+        return projectStreamingService.streamAllProjectIds()
     }
 
     func streamProject(id: String) -> some AsyncSequence<ProjectValue?, Never> {
-        @FetchOne(
-            Project
-                .where { $0.bundleIdentifier == id }
-                .order(by: \.createdAt)
-        ) var project: Project?
-
-        return $project.publisher.values
-            .map { dbProject -> ProjectValue? in
-                guard let dbProject = dbProject else { return nil }
-                return dbProject.toValue()
-            }
+        return projectStreamingService.streamProject(id: id)
     }
 
     func streamProjectVersionStrings() -> some AsyncSequence<[String: [String]], Never> {
-        @Fetch(ProjectVersionStringsRequest()) var projectVersions = ProjectVersionStringsRequest.Value()
-        return $projectVersions.publisher.values.map(\.versionsByProject)
+        return projectStreamingService.streamProjectVersionStrings()
     }
 
     func streamSchemeIds(projectId: String) -> some AsyncSequence<[UUID], Never> {
-        @FetchAll(
-            Scheme
-                .where { $0.projectBundleIdentifier == projectId }
-                .order(by: \.order)
-                .select(\.id)
-        ) var schemeIds: [UUID]
-
-        return $schemeIds.publisher.values
+        return schemeStreamingService.streamSchemeIds(projectId: projectId)
     }
 
     func streamScheme(id: UUID) -> some AsyncSequence<SchemeValue?, Never> {
-        @FetchOne(
-            Scheme
-                .where { $0.id == id }
-        ) var scheme: Scheme?
-
-        return $scheme.publisher.values
-            .map { dbScheme -> SchemeValue? in
-                guard let dbScheme = dbScheme else { return nil }
-                return dbScheme.toValue()
-            }
+        return schemeStreamingService.streamScheme(id: id)
     }
 
     func streamScheme(buildId: UUID) -> some AsyncSequence<SchemeValue?, Never> {
-        @Fetch(SchemeByBuildIdRequest(buildId: buildId)) var scheme: SchemeValue? = nil
-        return $scheme.publisher.values
+        return schemeStreamingService.streamScheme(buildId: buildId)
     }
 
     func streamSchemes(projectId: String) -> some AsyncSequence<[SchemeValue], Never> {
-        @FetchAll(
-            Scheme
-                .where { $0.projectBundleIdentifier == projectId }
-                .order(by: \.order)
-        ) var schemes: [Scheme]
-
-        return $schemes.publisher.values
-            .map { dbSchemes -> [SchemeValue] in
-                dbSchemes.map { dbScheme in
-                    dbScheme.toValue()
-                }
-            }
+        return schemeStreamingService.streamSchemes(projectId: projectId)
     }
 
     func streamBuildIds(schemeIds: [UUID], versionString: String?) -> some AsyncSequence<[UUID], Never> {
-        @FetchAll(
-            BuildModel.all
-                .where { $0.schemeId.in(schemeIds) }
-                .where { versionString == nil || $0.versionString == versionString }
-                .order { $0.createdAt.desc() }
-                .select(\.id)
-        ) var buildIds: [UUID]
-
-        return $buildIds.publisher.values
+        return schemeStreamingService.streamBuildIds(schemeIds: schemeIds, versionString: versionString)
     }
 
     func streamBuild(id: UUID) -> some AsyncSequence<BuildModelValue?, Never> {
-        @FetchOne(
-            BuildModel
-                .where { $0.id == id }
-        ) var build: BuildModel?
-
-        return $build.publisher.values
-            .map { dbBuild -> BuildModelValue? in
-                guard let dbBuild = dbBuild else { return nil }
-                return dbBuild.toValue()
-            }
+        return buildStreamingService.streamBuild(id: id)
     }
 
     func streamLatestBuilds(projectId: String, limit: Int) -> some AsyncSequence<[BuildModelValue], Never> {
-        @Fetch(LatestBuildsRequest(projectId: projectId, limit: limit)) var latestBuilds = LatestBuildsRequest.Value()
-        return $latestBuilds.publisher.values.map(\.builds)
+        return buildStreamingService.streamLatestBuilds(projectId: projectId, limit: limit)
     }
 
     func streamBuildLogIds(buildId: UUID, includeDebug: Bool, category: String?) -> some AsyncSequence<[UUID], Never> {
-        @FetchAll(
-            BuildLog
-                .where { $0.buildId == buildId }
-                .where { includeDebug || $0.level != BuildLogLevel.debug }
-                .where { category == nil || $0.category == category }
-                .order(by: \.createdAt)
-                .select(\.id)
-        ) var logIds: [UUID]
-
-        return $logIds.publisher.values
+        return logStreamingService.streamBuildLogIds(buildId: buildId, includeDebug: includeDebug, category: category)
     }
 
     func streamBuildLog(id: UUID) -> some AsyncSequence<BuildLogValue?, Never> {
-        @FetchOne(
-            BuildLog
-                .where { $0.id == id }
-        ) var buildLog: BuildLog?
-
-        return $buildLog.publisher.values
-            .map { dbLog -> BuildLogValue? in
-                guard let dbLog = dbLog else { return nil }
-                return dbLog.toValue()
-            }
+        return logStreamingService.streamBuildLog(id: id)
     }
 
     func streamCrashLogIds(buildId: UUID) -> some AsyncSequence<[String], Never> {
-        @FetchAll(
-            CrashLog
-                .where { $0.buildId == buildId }
-                .order { $0.createdAt.desc() }
-                .select(\.incidentIdentifier)
-        ) var crashLogIds: [String]
-
-        return $crashLogIds.publisher.values
+        return logStreamingService.streamCrashLogIds(buildId: buildId)
     }
 
     func streamCrashLog(id: String) -> some AsyncSequence<CrashLogValue?, Never> {
-        @FetchOne(
-            CrashLog
-                .where { $0.incidentIdentifier == id }
-        ) var crashLog: CrashLog?
-
-        return $crashLog.publisher.values
-            .map { dbCrashLog -> CrashLogValue? in
-                guard let dbCrashLog = dbCrashLog else { return nil }
-                return dbCrashLog.toValue()
-            }
+        return logStreamingService.streamCrashLog(id: id)
     }
 
     func streamProjectDetail(id: String) -> some AsyncSequence<ProjectDetailData?, Never> {
-        @Fetch(ProjectDetailRequest(id: id)) 
-        var projectDetail: ProjectDetailRequest.Result? = nil
-
-        return $projectDetail.publisher.values.compactMap { result -> ProjectDetailData? in
-            guard let result = result else { return nil }
-            let projectValue = result.project.toValue()
-            return ProjectDetailData(
-                project: projectValue,
-                schemeIds: result.schemes.map(\.id),
-                recentBuildIds: result.builds.prefix(5).map(\.id)
-            )
-        }
+        return projectStreamingService.streamProjectDetail(id: id)
     }
 
     func streamBuildVersionStrings(projectId: String) -> some AsyncSequence<[String], Never> {
-        @Fetch(BuildVersionStringsRequest(projectId: projectId)) 
-        var buildVersions = BuildVersionStringsRequest.Value()
-        return $buildVersions.publisher.values
-    }
-}
-
-// MARK: - FetchKeyRequest Implementations
-
-/// Custom FetchKeyRequest for fetching project version strings with all related data in a single transaction
-private struct ProjectVersionStringsRequest: FetchKeyRequest {
-    struct Value {
-        let versionsByProject: [String: [String]]
-
-        init() {
-            self.versionsByProject = [:]
-        }
-
-        init(versionsByProject: [String: [String]]) {
-            self.versionsByProject = versionsByProject
-        }
-    }
-
-    func fetch(_ db: Database) throws -> Value {
-        let projects = try Project.all.fetchAll(db)
-        var result: [String: [String]] = [:]
-
-        for project in projects {
-            let schemes = try Scheme
-                .where { $0.projectBundleIdentifier == project.bundleIdentifier }
-                .fetchAll(db)
-
-            let schemeIds = schemes.map(\.id)
-            let builds = try BuildModel
-                .where { $0.schemeId.in(schemeIds) }
-                .fetchAll(db)
-
-            let versions = Array(Set(builds.map(\.versionString))).sorted()
-            result[project.bundleIdentifier] = versions
-        }
-
-        return Value(versionsByProject: result)
-    }
-}
-
-/// Custom FetchKeyRequest for fetching latest builds for a project with all data in a single transaction
-private struct LatestBuildsRequest: FetchKeyRequest {
-    let projectId: String
-    let limit: Int
-
-    struct Value {
-        let builds: [BuildModelValue]
-
-        init() {
-            self.builds = []
-        }
-
-        init(builds: [BuildModelValue]) {
-            self.builds = builds
-        }
-    }
-
-    func fetch(_ db: Database) throws -> Value {
-        // Get schemes for the project
-        let schemes = try Scheme
-            .where { $0.projectBundleIdentifier == projectId }
-            .fetchAll(db)
-
-        let schemeIds = schemes.map(\.id)
-
-        // Get latest builds
-        let builds = try BuildModel
-            .where { $0.schemeId.in(schemeIds) }
-            .order { $0.createdAt.desc() }
-            .limit(limit)
-            .fetchAll(db)
-
-        let buildModelValues = builds.map { build in
-            build.toValue()
-        }
-
-        return Value(builds: buildModelValues)
-    }
-}
-
-/// Custom FetchKeyRequest for fetching build version strings for a project in a single transaction
-private struct BuildVersionStringsRequest: FetchKeyRequest {
-    let projectId: String
-
-    func fetch(_ db: Database) throws -> [String] {
-        let schemes = try Scheme
-            .where { $0.projectBundleIdentifier == projectId }
-            .fetchAll(db)
-
-        let schemeIds = schemes.map(\.id)
-        let builds = try BuildModel
-            .where { $0.schemeId.in(schemeIds) }
-            .fetchAll(db)
-
-        let versions = Array(Set(builds.map(\.versionString))).sorted(by: >)
-        return versions
-    }
-}
-
-/// Custom FetchKeyRequest for fetching scheme by build ID
-private struct SchemeByBuildIdRequest: FetchKeyRequest {
-    let buildId: UUID
-    
-    func fetch(_ db: Database) throws -> SchemeValue? {
-        // Get the build to find its scheme ID
-        guard let build = try BuildModel.where({ $0.id == buildId }).fetchOne(db) else {
-            return nil
-        }
-        
-        // Get the scheme
-        let scheme = try Scheme
-            .where { $0.id == build.schemeId }
-            .fetchOne(db)
-        
-        return scheme?.toValue()
+        return buildStreamingService.streamBuildVersionStrings(projectId: projectId)
     }
 }
