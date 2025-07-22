@@ -180,12 +180,6 @@ public actor LocalBuildJobManager {
                     buildNumber: buildModel.buildNumber,
                     commitHash: buildModel.commitHash
                 )
-                let deviceMetadata = DeviceMetadata(
-                    model: buildModel.deviceMetadata,
-                    osVersion: buildModel.osVersion,
-                    memory: buildModel.memory,
-                    processor: buildModel.processor
-                )
                 
                 let dbBuild = BuildModel(
                     id: buildModel.id,
@@ -198,7 +192,7 @@ public actor LocalBuildJobManager {
                     commitHash: buildModel.commitHash,
                     status: BuildStatus(rawValue: buildModel.status.rawValue) ?? .queued,
                     progress: buildModel.progress,
-                    deviceMetadata: deviceMetadata
+                    deviceMetadata: buildModel.deviceMetadata,
                 )
                 try BuildModel.insert { dbBuild }.execute(db)
             }

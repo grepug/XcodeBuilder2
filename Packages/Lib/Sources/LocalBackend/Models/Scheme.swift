@@ -3,7 +3,7 @@ import SharingGRDB
 import Core
 
 @Table
-public struct Scheme: Codable, Sendable, Hashable, Identifiable, Comparable {
+public struct Scheme: Codable, Sendable, Hashable, Identifiable, Comparable, SchemeProtocol {
     public var id: UUID
 
     @Column("project_bundle_identifier")

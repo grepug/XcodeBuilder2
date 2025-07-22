@@ -347,6 +347,32 @@ public extension LocalBackendService {
             }
     }
 
+    func streamScheme(buildId: UUID) -> some AsyncSequence<SchemeValue?, Never> {
+        @Fetch(SchemeByBuildIdRequest(buildId: buildId)) var scheme: SchemeValue? = nil
+        return $scheme.publisher.values
+    }
+
+    func streamSchemes(projectId: String) -> some AsyncSequence<[SchemeValue], Never> {
+        @FetchAll(
+            Scheme
+                .where { $0.projectBundleIdentifier == projectId }
+                .order(by: \.order)
+        ) var schemes: [Scheme]
+
+        return $schemes.publisher.values
+            .map { dbSchemes -> [SchemeValue] in
+                dbSchemes.map { dbScheme in
+                    SchemeValue(
+                        id: dbScheme.id,
+                        projectBundleIdentifier: dbScheme.projectBundleIdentifier,
+                        name: dbScheme.name,
+                        platforms: dbScheme.platforms,
+                        order: dbScheme.order
+                    )
+                }
+            }
+    }
+
     func streamBuildIds(schemeIds: [UUID], versionString: String?) -> some AsyncSequence<[UUID], Never> {
         @FetchAll(
             BuildModel.all
@@ -601,5 +627,24 @@ private struct BuildVersionStringsRequest: FetchKeyRequest {
 
         let versions = Array(Set(builds.map(\.versionString))).sorted(by: >)
         return versions
+    }
+}
+
+/// Custom FetchKeyRequest for fetching scheme by build ID
+private struct SchemeByBuildIdRequest: FetchKeyRequest {
+    let buildId: UUID
+    
+    func fetch(_ db: Database) throws -> SchemeValue? {
+        // Get the build to find its scheme ID
+        guard let build = try BuildModel.where({ $0.id == buildId }).fetchOne(db) else {
+            return nil
+        }
+        
+        // Get the scheme
+        let scheme = try Scheme
+            .where { $0.id == build.schemeId }
+            .fetchOne(db)
+        
+        return scheme?.toValue()
     }
 }

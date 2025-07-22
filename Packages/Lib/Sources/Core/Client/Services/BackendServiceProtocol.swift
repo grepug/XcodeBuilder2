@@ -8,6 +8,7 @@ public protocol BackendService: Sendable {
     associatedtype ProjectVersionStringsSequence: AsyncSequence where ProjectVersionStringsSequence.Element == [String: [String]], ProjectVersionStringsSequence.Failure == Never
     associatedtype SchemeIdsSequence: AsyncSequence where SchemeIdsSequence.Element == [UUID], SchemeIdsSequence.Failure == Never
     associatedtype SchemeSequence: AsyncSequence where SchemeSequence.Element == SchemeValue?, SchemeSequence.Failure == Never
+    associatedtype SchemeSequenceByBuildId: AsyncSequence where SchemeSequenceByBuildId.Element == SchemeValue?, SchemeSequenceByBuildId.Failure == Never
     associatedtype SchemesSequence: AsyncSequence where SchemesSequence.Element == [SchemeValue], SchemesSequence.Failure == Never
     associatedtype BuildIdsSequence: AsyncSequence where BuildIdsSequence.Element == [UUID], BuildIdsSequence.Failure == Never
     associatedtype BuildSequence: AsyncSequence where BuildSequence.Element == BuildModelValue?, BuildSequence.Failure == Never
@@ -45,7 +46,7 @@ public protocol BackendService: Sendable {
     func streamProjectVersionStrings() -> ProjectVersionStringsSequence
     func streamSchemeIds(projectId: String) -> SchemeIdsSequence
     func streamScheme(id: UUID) -> SchemeSequence
-    func streamScheme(buildId: UUID) -> SchemeSequence
+    func streamScheme(buildId: UUID) -> SchemeSequenceByBuildId
     func streamSchemes(projectId: String) -> SchemesSequence
     func streamBuildIds(schemeIds: [UUID], versionString: String?) -> BuildIdsSequence
     func streamBuild(id: UUID) -> BuildSequence
