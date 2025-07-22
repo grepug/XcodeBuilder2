@@ -262,6 +262,18 @@ public struct LocalBackendService: BackendService {
         // The synchronous protocol requirement makes it difficult to use the actor
         return nil
     }
+    
+    // MARK: - Git Repository Operations (LOCAL IMPLEMENTATION)
+    
+    /// Fetch available versions/tags from a remote repository
+    public func fetchVersions(remoteURL: URL) async throws -> [Version] {
+        return try await GitCommand.fetchVersions(remoteURL: remoteURL)
+    }
+    
+    /// Fetch available branches from a remote repository
+    public func fetchBranches(remoteURL: URL) async throws -> [GitBranch] {
+        return try await GitCommand.fetchBranches(remoteURL: remoteURL)
+    }
 }
 
 // MARK: - Reactive Observation Methods (Backend Service Layer)

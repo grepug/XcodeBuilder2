@@ -62,6 +62,10 @@ public protocol BackendService: Sendable {
     func cancelBuildJob(buildId: UUID) async
     func deleteBuildJob(buildId: UUID) async throws
     func getBuildJobStatus(buildId: UUID) -> BuildJobStatus?
+    
+    // MARK: - Git Repository Operations
+    func fetchVersions(remoteURL: URL) async throws -> [Version]
+    func fetchBranches(remoteURL: URL) async throws -> [GitBranch]
 }
 
 // MARK: - Data Transfer Objects

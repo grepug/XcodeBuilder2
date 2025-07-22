@@ -113,14 +113,4 @@ public struct GitCommand {
     }
 }
 
-public struct GitBranch: Sendable, Hashable {
-    public let name: String
-    public let commitHash: String
-    
-    public init(name: String, commitHash: String) {
-        self.name = name
-        self.commitHash = commitHash
-    }
-}
-
 //xcodebuild -project /Users/kai/Documents/xcode-builder/context/v2.1.3_263/ContextApp.xcodeproj -skipMacroValidation -skipPackagePluginValidation -derivedDataPath /Users/kai/Documents/xcode-builder/context/v2.1.3_263/DerivedData -archivePath /Users/kai/Documents/xcode-builder/context/v2.1.3_263/Archives/v2.1.3_263.xcarchive -scheme "Beta Release" -destination "generic/platform=iOS"  -exportPath /Users/kai/Documents/xcode-builder/context/v2.1.3_263/Exports/v2.1.3_263 -resolvePackageDependencies
