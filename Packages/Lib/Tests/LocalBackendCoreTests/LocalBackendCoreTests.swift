@@ -42,16 +42,18 @@ struct LocalBackendCoreTests {
         BuildModelValue(
             id: UUID(),
             schemeId: schemeId,
-            versionString: "1.0.0",
-            buildNumber: 1,
+            version: Version(
+                version: "1.0.0",
+                buildNumber: 1,
+                commitHash: "abc123"
+            ),
             createdAt: Date(),
             startDate: Date(),
             endDate: Date().addingTimeInterval(60),
             exportOptions: [ExportOption.appStore],
             status: .completed,
             progress: 100,
-            commitHash: "abc123",
-            deviceMetadata: "MacBook Pro",
+            deviceMetadata: DeviceMetadata(model: "MacBook Pro"),
             osVersion: "macOS 15.0",
             memory: 16,
             processor: "Apple M1"

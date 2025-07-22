@@ -99,89 +99,20 @@ public enum BuildLogLevel: String, Sendable, CaseIterable {
     case info, warning, error, debug
 }
 
-// MARK: - Protocol Extensions with toValue() Methods
-public extension ProjectProtocol {
-    func toValue() -> ProjectValue {
-        ProjectValue(
-            bundleIdentifier: bundleIdentifier,
-            name: name,
-            displayName: displayName,
-            gitRepoURL: gitRepoURL,
-            xcodeprojName: xcodeprojName,
-            workingDirectoryURL: workingDirectoryURL,
-            createdAt: createdAt
-        )
-    }
+public enum CrashLogRole: String, Codable, Sendable, Hashable, CaseIterable {
+    case foreground
+    case background
 }
 
-public extension SchemeProtocol {
-    func toValue() -> SchemeValue {
-        SchemeValue(
-            id: id,
-            projectBundleIdentifier: projectBundleIdentifier,
-            name: name,
-            platforms: platforms,
-            order: order
-        )
-    }
-}
-
-public extension BuildModelProtocol {
-    func toValue() -> BuildModelValue {
-        BuildModelValue(
-            id: id,
-            schemeId: schemeId,
-            version: Version(version: versionString, buildNumber: buildNumber, commitHash: commitHash),
-            createdAt: createdAt,
-            startDate: startDate,
-            endDate: endDate,
-            exportOptions: exportOptions,
-            status: status,
-            progress: progress,
-            deviceMetadata: deviceMetadata,
-            osVersion: osVersion,
-            memory: memory,
-            processor: processor
-        )
-    }
-}
-
-public extension BuildLogProtocol {
-    func toValue() -> BuildLogValue {
-        BuildLogValue(
-            id: id,
-            buildId: buildId,
-            category: category,
-            level: level,
-            content: content,
-            createdAt: createdAt
-        )
-    }
-}
-
-public extension CrashLogProtocol {
-    func toValue() -> CrashLogValue {
-        CrashLogValue(
-            incidentIdentifier: incidentIdentifier,
-            isMainThread: isMainThread,
-            createdAt: createdAt,
-            buildId: buildId,
-            content: content,
-            hardwareModel: hardwareModel,
-            process: process,
-            role: role,
-            dateTime: dateTime,
-            launchTime: launchTime,
-            osVersion: osVersion,
-            note: note,
-            fixed: fixed,
-            priority: priority
-        )
-    }
+public enum CrashLogPriority: String, Codable, Sendable, Hashable, CaseIterable {
+    case urgent
+    case high
+    case medium
+    case low
 }
 
 // MARK: - Value Types for Backend Communication
-public struct ProjectValue: ProjectProtocol {
+public struct ProjectValue: ProjectProtocol, Sendable {
     public var bundleIdentifier: String
     public var name: String
     public var displayName: String
@@ -211,7 +142,7 @@ public struct ProjectValue: ProjectProtocol {
     }
 }
 
-public struct SchemeValue: SchemeProtocol {
+public struct SchemeValue: SchemeProtocol, Sendable {
     public let id: UUID
     public var projectBundleIdentifier: String
     public var name: String
@@ -233,7 +164,7 @@ public struct SchemeValue: SchemeProtocol {
     }
 }
 
-public struct BuildModelValue: BuildModelProtocol {
+public struct BuildModelValue: BuildModelProtocol, Sendable {
     public let id: UUID
     public var schemeId: UUID
     public var versionString: String
@@ -292,7 +223,7 @@ public struct BuildModelValue: BuildModelProtocol {
     }
 }
 
-public struct BuildLogValue: BuildLogProtocol {
+public struct BuildLogValue: BuildLogProtocol, Sendable {
     public let id: UUID
     public let buildId: UUID
     public let category: String?
@@ -317,7 +248,7 @@ public struct BuildLogValue: BuildLogProtocol {
     }
 }
 
-public struct CrashLogValue: CrashLogProtocol {
+public struct CrashLogValue: CrashLogProtocol, Sendable {
     public var incidentIdentifier: String
     public var isMainThread: Bool
     public var createdAt: Date
@@ -367,38 +298,3 @@ public struct CrashLogValue: CrashLogProtocol {
         self.priority = priority
     }
 }
-
-// MARK: - Supporting Enums (Backend-Agnostic)
-
-public enum CrashLogRole: String, Codable, Sendable, Hashable, CaseIterable {
-    case foreground
-    case background
-}
-
-public enum CrashLogPriority: String, Codable, Sendable, Hashable, CaseIterable {
-    case urgent
-    case high
-    case medium
-    case low
-}
-
-// MARK: - Log Categories
-public enum BuildLogCategory: String, Codable, Sendable, Hashable, CaseIterable {
-    case clone
-    case resolveDependencies
-    case archive
-    case export
-    case cleanup
-}
-
-// MARK: - Type Aliases for Backward Compatibility
-//public typealias Project = any ProjectProtocol
-//public typealias Scheme = any SchemeProtocol
-//public typealias BuildModel = any BuildModelProtocol
-//public typealias CrashLog = any CrashLogProtocol
-//public typealias BuildLog = any BuildLogProtocol
-
-// MARK: - Nested type aliases for compatibility
-//public enum BuildLogCompat {
-//    public typealias Level = BuildLogLevel
-//}
