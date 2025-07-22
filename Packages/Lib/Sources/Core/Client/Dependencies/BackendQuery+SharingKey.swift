@@ -32,6 +32,14 @@ public extension SharedReaderKey where Self == BackendQueryKey<[String]>.Default
   }
 }
 
+public extension SharedReaderKey where Self == BackendQueryKey<[SchemeValue]>.Default {
+    static func schemes(projectId: String) -> Self {
+        Self[.init(.init(id: "schemes-\(projectId)") {
+            await $0.streamSchemes(projectId: projectId).observe($1, stop: $2)
+        }), default: []]
+    }
+}
+
 public extension SharedReaderKey where Self == BackendQueryKey<[UUID]>.Default {
   static func schemeIds(projectId: String) -> Self {
     Self[.init(.init(id: "schemeIds-\(projectId)") {
@@ -45,6 +53,21 @@ public extension SharedReaderKey where Self == BackendQueryKey<[UUID]>.Default {
       await $0.streamBuildIds(schemeIds: schemeIds, versionString: versionString).observe($1, stop: $2)
     }), default: []]
   }
+    
+    static func buildLogIds(buildId: UUID, includeDebug: Bool, category: String?) -> Self {
+        let id = "buildLogIds-\(buildId)"
+        return Self[.init(.init(id: id) {
+          await $0.streamBuildLogIds(buildId: buildId, includeDebug: includeDebug, category: category).observe($1, stop: $2)
+        }), default: []]
+    }
+}
+
+public extension SharedReaderKey where Self == BackendQueryKey<BuildLogValue?>.Default {
+    static func buildLog(id: UUID) -> Self {
+        Self[.init(.init(id: "buildLog-\(id)") {
+            await $0.streamBuildLog(id: id).observe($1, stop: $2)
+        }), default: nil]
+    }
 }
 
 public extension SharedReaderKey where Self == BackendQueryKey<ProjectValue?>.Default {
@@ -69,6 +92,12 @@ public extension SharedReaderKey where Self == BackendQueryKey<SchemeValue?>.Def
       await $0.streamScheme(id: id).observe($1, stop: $2)
     }), default: nil]
   }
+    
+    static func scheme(buildId: UUID) -> Self {
+      Self[.init(.init(id: "scheme-build-\(buildId)") {
+        await $0.streamScheme(buildId: buildId).observe($1, stop: $2)
+      }), default: nil]
+    }
 }
 
 public extension SharedReaderKey where Self == BackendQueryKey<BuildModelValue?>.Default {
@@ -93,6 +122,22 @@ public extension SharedReaderKey where Self == BackendQueryKey<ProjectDetailData
       await $0.streamProjectDetail(id: id).observe($1, stop: $2)
     }), default: nil]
   }
+}
+
+public extension SharedReaderKey where Self == BackendQueryKey<[String]>.Default {
+    static func crashLogIds(buildId: UUID) -> Self {
+        Self[.init(.init(id: "crashLogs-\(buildId)") {
+            await $0.streamCrashLogIds(buildId: buildId).observe($1, stop: $2)
+        }), default: []]
+    }
+}
+
+public extension SharedReaderKey where Self == BackendQueryKey<CrashLogValue?>.Default {
+    static func crashLog(id: String) -> Self {
+        Self[.init(.init(id: "crashLog-\(id)") {
+            await $0.streamCrashLog(id: id).observe($1, stop: $2)
+        }), default: nil]
+    }
 }
 
 private extension AsyncSequence {

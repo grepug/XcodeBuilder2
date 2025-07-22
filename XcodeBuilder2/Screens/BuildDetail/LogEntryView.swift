@@ -9,7 +9,7 @@ import SwiftUI
 import Core
 
 struct LogEntryView: View {
-    let log: BuildLog
+    let log: BuildLogValue
     
     var body: some View {
         HStack(alignment: .top, spacing: 8) {

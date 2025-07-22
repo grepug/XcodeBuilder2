@@ -7,18 +7,23 @@
 
 import SwiftUI
 import Core
-import SharingGRDB
+import Sharing
 
 struct LogEntryViewContainer: View {
     var id: UUID
     
-    @State @FetchOne var fetchedLog: BuildLog?
+    @SharedReader var log: BuildLogValue?
+    
+    init(id: UUID) {
+        self.id = id
+        _log = .init(wrappedValue: nil, .buildLog(id: id))
+    }
     
     var body: some View {
         LazyVStack {
-            LogEntryView(log: fetchedLog ?? .init(buildId: id, content: ""))
+            LogEntryView(log: log ?? .init(buildId: id, content: ""))
                 .task(id: id) {
-                    try! await $fetchedLog.wrappedValue.load(BuildLog.where { $0.id == id })
+                    try? await $log.load(.buildLog(id: id))
                 }
         }
     }

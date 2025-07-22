@@ -54,8 +54,8 @@ func recursivelySearchFiles(at url: URL, withExtension ext: String) -> [URL] {
 public struct MacSymbolicator {
     public static func makeCrashLog(
         content: String,
-        getBuildId: @escaping (_ crashLog: CrashLog, _ projectId: String, _ version: Version) async -> UUID,
-    ) async throws -> CrashLog {
+        getBuildId: @escaping (_ crashLog: CrashLogValue, _ projectId: String, _ version: Version) async -> UUID,
+    ) async throws -> CrashLogValue {
         let symbolicatedContent = try await symbolicate(content: content)
         let (incidentIdentifier,
              hardwareModel,

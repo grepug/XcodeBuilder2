@@ -18,7 +18,7 @@ struct BuildEditorContainer: View {
         case version = "Version"
     }
     
-    @State private var buildModel = BuildModel(exportOptions: [.appStore])
+    @State private var buildModel = BuildModelValue(exportOptions: [.appStore])
     @State private var versions: [Version] = []
     @State private var branches: [GitBranch] = []
     @State private var versionSelection: Version?
@@ -29,21 +29,25 @@ struct BuildEditorContainer: View {
     
     @Shared(.appStorage("saved_branch_name")) private var savedBranchName: String?
     
-    @State private var errorMessage: String?
+    @SharedReader private var loadedProject: ProjectValue?
+    @SharedReader private var schemes: [SchemeValue]
     
-    @Fetch var fetchedValue: ProjectDetailRequest.Result?
+    init(projectId: String, dismiss: (() -> Void)? = nil) {
+        self.projectId = projectId
+        self.dismiss = dismiss
+        _loadedProject = .init(wrappedValue: nil, .project(id: projectId))
+        _schemes = .init(wrappedValue: [], .schemes(projectId: projectId))
+    }
+    
+    @State private var errorMessage: String?
     
     @Environment(BuildManager.self) private var buildManager
     @Environment(EntryViewModel.self) private var entryVM
     
-    var project: Project {
-        fetchedValue?.project ?? Project(displayName: "Loading...")
+    var project: ProjectValue {
+        loadedProject ?? ProjectValue(displayName: "Loading...")
     }
     
-    var schemes: [Scheme] {
-        fetchedValue?.schemes ?? []
-    }
-
     var loading: Bool {
         versions.isEmpty || branches.isEmpty
     }
@@ -99,7 +103,8 @@ struct BuildEditorContainer: View {
             }
         }
         .task(id: projectId) {
-            try! await $fetchedValue.load(ProjectDetailRequest(id: projectId))
+            try! await $loadedProject.load(.project(id: projectId))
+            try! await $schemes.load(.schemes(projectId: projectId))
         }
         .errorAlert(error: $showingError)
     }

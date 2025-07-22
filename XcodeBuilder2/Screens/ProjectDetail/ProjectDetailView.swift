@@ -8,7 +8,7 @@
 import SwiftUI
 import Charts
 import Core
-import SharingGRDB
+import Sharing
 
 #if os(macOS)
 import AppKit
@@ -19,46 +19,12 @@ enum ProjectDetailTab: String, CaseIterable {
     case builds = "Builds"
 }
 
-struct ProjectDetailViewContainer: View {
-    @Environment(ProjectDetailViewModel.self) private var vm
-    @Environment(EntryViewModel.self) private var entryVM
-    @Environment(BuildManager.self) private var buildManager
-    
-    @State private var tabSelection = ProjectDetailTab.overview
-    
-    var body: some View {
-        @Bindable var vm = vm
-        @Bindable var entryVM = entryVM
-        
-        ProjectDetailView(
-            project: vm.project ?? .init(),
-            schemes: vm.schemes,
-            builds: vm.builds,
-            availableVersions: vm.allVersions,
-            versionSelection: $vm.versionSelection,
-            tabSelection: $tabSelection,
-            buildSelection: $entryVM.buildSelection,
-//            cancelBuild: {
-//                buildManager.cancelBuild(id: $0)
-//            },
-//            deleteBuild: {
-//                buildManager.deleteBuild($0, project: vm.project!)
-//            }
-        )
-        .onChange(of: tabSelection) { oldValue, newValue in
-            if newValue == .overview {
-                
-            } else {
-                entryVM.buildSelection = vm.builds.first?.id
-            }
-        }
-    }
-}
+
 
 struct ProjectDetailView: View {
-    var project: Project
-    var schemes: [Scheme] = []
-    var builds: [BuildModel] = []
+    var project: ProjectValue
+    var schemes: [SchemeValue] = []
+    var builds: [BuildModelValue] = []
     var availableVersions: [String]
     
     @Binding var versionSelection: String?
@@ -73,7 +39,9 @@ struct ProjectDetailView: View {
     }
     
     var totalBuildTimeInterval: TimeInterval {
-        builds.reduce(into: 0) { $0 += $1.duration }
+        builds
+            .filter { $0.status == .completed }
+            .reduce(into: 0) { $0 += $1.duration }
     }
     
     var averageBuildTimeInterval: TimeInterval {

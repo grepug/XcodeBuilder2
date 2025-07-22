@@ -9,7 +9,8 @@ let package = Package(
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(name: "Core", targets: ["Core"]),
-        .library(name: "LocalBackend", targets: ["LocalBackend"])
+        .library(name: "LocalBackend", targets: ["LocalBackend"]),
+        .library(name: "Lib", targets: ["Core", "LocalBackend"])
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift", from: "7.4.0"),

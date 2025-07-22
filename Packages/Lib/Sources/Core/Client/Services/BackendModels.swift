@@ -1,7 +1,7 @@
 import Foundation
 
 // MARK: - Backend Model Protocols
-public protocol ProjectProtocol: Sendable, Identifiable {
+public protocol ProjectProtocol: Sendable, Identifiable, Hashable {
     var bundleIdentifier: String { get }
     var name: String { get }
     var displayName: String { get }
@@ -12,7 +12,7 @@ public protocol ProjectProtocol: Sendable, Identifiable {
     var id: String { get }
 }
 
-public protocol SchemeProtocol: Sendable, Identifiable {
+public protocol SchemeProtocol: Sendable, Identifiable, Hashable {
     var id: UUID { get }
     var projectBundleIdentifier: String { get }
     var name: String { get }
@@ -20,19 +20,19 @@ public protocol SchemeProtocol: Sendable, Identifiable {
     var order: Int { get }
 }
 
-public protocol BuildModelProtocol: Sendable, Identifiable {
+public protocol BuildModelProtocol: Sendable, Identifiable, Hashable {
     var id: UUID { get }
     var schemeId: UUID { get }
-    var versionString: String { get }
-    var buildNumber: Int { get }
+    var versionString: String { get set }
+    var buildNumber: Int { get set }
     var createdAt: Date { get }
     var startDate: Date? { get }
     var endDate: Date? { get }
     var exportOptions: [ExportOption] { get }
     var status: BuildStatus { get }
     var progress: Double { get }
-    var commitHash: String { get }
-    var deviceMetadata: String { get }
+    var commitHash: String { get set }
+    var deviceMetadata: DeviceMetadata { get }
     var osVersion: String { get }
     var memory: Int { get }
     var processor: String { get }
@@ -40,6 +40,25 @@ public protocol BuildModelProtocol: Sendable, Identifiable {
     // Computed properties for compatibility
     var version: Version { get }
     var projectDirName: String { get }
+}
+
+public extension BuildModelProtocol {
+    var duration: TimeInterval {
+        guard let start = startDate, let end = endDate else { return 0 }
+        return end.timeIntervalSince(start)
+    }
+    
+    var version: Version {
+        get {
+            Version(version: versionString, buildNumber: buildNumber, commitHash: commitHash)
+        }
+        
+        set {
+            versionString = newValue.version
+            buildNumber = newValue.buildNumber
+            commitHash = newValue.commitHash
+        }
+    }
 }
 
 public protocol BuildLogProtocol: Sendable, Identifiable {
@@ -87,12 +106,12 @@ public struct ProjectValue: ProjectProtocol {
     public var id: String { bundleIdentifier }
 
     public init(
-        bundleIdentifier: String,
-        name: String,
-        displayName: String,
-        gitRepoURL: URL,
-        xcodeprojName: String,
-        workingDirectoryURL: URL,
+        bundleIdentifier: String = "",
+        name: String = "",
+        displayName: String = "",
+        gitRepoURL: URL = URL(string: "https://github.com")!,
+        xcodeprojName: String = "",
+        workingDirectoryURL: URL = URL(fileURLWithPath: ""),
         createdAt: Date = .now
     ) {
         self.bundleIdentifier = bundleIdentifier
@@ -107,17 +126,17 @@ public struct ProjectValue: ProjectProtocol {
 
 public struct SchemeValue: SchemeProtocol {
     public let id: UUID
-    public let projectBundleIdentifier: String
-    public let name: String
-    public let platforms: [Platform]
-    public let order: Int
+    public var projectBundleIdentifier: String
+    public var name: String
+    public var platforms: [Platform]
+    public var order: Int
 
     public init(
         id: UUID = UUID(),
-        projectBundleIdentifier: String,
-        name: String,
-        platforms: [Platform],
-        order: Int
+        projectBundleIdentifier: String = "",
+        name: String = "",
+        platforms: [Platform] = [],
+        order: Int = 0,
     ) {
         self.id = id
         self.projectBundleIdentifier = projectBundleIdentifier
@@ -129,20 +148,20 @@ public struct SchemeValue: SchemeProtocol {
 
 public struct BuildModelValue: BuildModelProtocol {
     public let id: UUID
-    public let schemeId: UUID
-    public let versionString: String
-    public let buildNumber: Int
-    public let createdAt: Date
-    public let startDate: Date?
-    public let endDate: Date?
-    public let exportOptions: [ExportOption]
-    public let status: BuildStatus
-    public let progress: Double
-    public let commitHash: String
-    public let deviceMetadata: String
-    public let osVersion: String
-    public let memory: Int
-    public let processor: String
+    public var schemeId: UUID
+    public var versionString: String
+    public var buildNumber: Int
+    public var createdAt: Date
+    public var startDate: Date?
+    public var endDate: Date?
+    public var exportOptions: [ExportOption]
+    public var status: BuildStatus
+    public var progress: Double
+    public var commitHash: String
+    public var deviceMetadata: DeviceMetadata
+    public var osVersion: String
+    public var memory: Int
+    public var processor: String
     
     // Computed properties
     public var version: Version {
@@ -155,32 +174,30 @@ public struct BuildModelValue: BuildModelProtocol {
 
     public init(
         id: UUID = UUID(),
-        schemeId: UUID,
-        versionString: String,
-        buildNumber: Int,
+        schemeId: UUID = .init(),
+        version: Version = .init(),
         createdAt: Date = .now,
         startDate: Date? = nil,
         endDate: Date? = nil,
         exportOptions: [ExportOption] = [],
         status: BuildStatus = .queued,
         progress: Double = 0,
-        commitHash: String = "",
-        deviceMetadata: String = "",
+        deviceMetadata: DeviceMetadata = .init(),
         osVersion: String = "",
         memory: Int = 0,
         processor: String = ""
     ) {
         self.id = id
         self.schemeId = schemeId
-        self.versionString = versionString
-        self.buildNumber = buildNumber
+        self.versionString = version.version
+        self.buildNumber = version.buildNumber
+        self.commitHash = version.commitHash
         self.createdAt = createdAt
         self.startDate = startDate
         self.endDate = endDate
         self.exportOptions = exportOptions
         self.status = status
         self.progress = progress
-        self.commitHash = commitHash
         self.deviceMetadata = deviceMetadata
         self.osVersion = osVersion
         self.memory = memory
@@ -266,24 +283,6 @@ public struct CrashLogValue: CrashLogProtocol {
 
 // MARK: - Supporting Enums (Backend-Agnostic)
 
-public enum BuildStatus: String, Codable, Sendable, Hashable, CaseIterable {
-    case queued
-    case running
-    case completed
-    case failed
-    case cancelled
-    
-    public var title: String {
-        switch self {
-        case .queued: "Queued"
-        case .running: "Running"
-        case .completed: "Completed"
-        case .failed: "Failed"
-        case .cancelled: "Cancelled"
-        }
-    }
-}
-
 public enum CrashLogRole: String, Codable, Sendable, Hashable, CaseIterable {
     case foreground
     case background
@@ -306,13 +305,13 @@ public enum BuildLogCategory: String, Codable, Sendable, Hashable, CaseIterable 
 }
 
 // MARK: - Type Aliases for Backward Compatibility
-public typealias Project = any ProjectProtocol
-public typealias Scheme = any SchemeProtocol
-public typealias BuildModel = any BuildModelProtocol
-public typealias CrashLog = any CrashLogProtocol
-public typealias BuildLog = any BuildLogProtocol
+//public typealias Project = any ProjectProtocol
+//public typealias Scheme = any SchemeProtocol
+//public typealias BuildModel = any BuildModelProtocol
+//public typealias CrashLog = any CrashLogProtocol
+//public typealias BuildLog = any BuildLogProtocol
 
 // MARK: - Nested type aliases for compatibility
-public enum BuildLogCompat {
-    public typealias Level = BuildLogLevel
-}
+//public enum BuildLogCompat {
+//    public typealias Level = BuildLogLevel
+//}

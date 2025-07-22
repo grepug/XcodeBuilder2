@@ -1,49 +1,6 @@
 import Foundation
 import SharingGRDB
 import Core
-import SwiftUI
-
-public enum BuildStatus: String, Codable, Sendable, Hashable, QueryBindable {
-    case queued
-    case running
-    case completed
-    case failed
-    case cancelled
-    
-    public var title: String {
-        switch self {
-        case .queued: "Queued"
-        case .running: "Running"
-        case .completed: "Completed"
-        case .failed: "Failed"
-        case .cancelled: "Cancelled"
-        }
-    }
-    
-    public var color: Color {
-        switch self {
-        case .queued: .blue
-        case .running: .orange
-        case .completed: .green
-        case .failed: .red
-        case .cancelled: .gray
-        }
-    }
-}
-
-public struct DeviceMetadata: Codable, Sendable, Hashable {
-    public let model: String
-    public let osVersion: String
-    public let memory: Int // in GB
-    public let processor: String
-
-    public init(model: String = "", osVersion: String = "", memory: Int = 0, processor: String = "") {
-        self.model = model
-        self.osVersion = osVersion
-        self.memory = memory
-        self.processor = processor
-    }
-}
 
 @Table("builds")
 public struct BuildModel: Identifiable, Sendable, Hashable {
@@ -152,3 +109,5 @@ public struct BuildModel: Identifiable, Sendable, Hashable {
         self.processor = deviceMetadata.processor
     }
 }
+
+extension BuildStatus: QueryBindable {}

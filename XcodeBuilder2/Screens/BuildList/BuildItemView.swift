@@ -7,13 +7,20 @@
 
 import SwiftUI
 import Core
-import SharingGRDB
+import Sharing
 
 struct BuildItemViewContainer: View {
     var id: UUID
     
-    @State @FetchOne var build: BuildModel?
-    @State @FetchOne var scheme: Scheme?
+    @SharedReader var build: BuildModelValue?
+    @SharedReader var scheme: SchemeValue?
+    
+    init(id: UUID) {
+        self.id = id
+        
+        _build = SharedReader(wrappedValue: nil, .build(id: id))
+        _scheme = SharedReader(wrappedValue: nil, .scheme(buildId: id))
+    }
     
     @Environment(BuildManager.self) private var buildManager
     
@@ -23,7 +30,7 @@ struct BuildItemViewContainer: View {
             scheme: scheme ?? .init(),
         )
         .task(id: id) {
-            try! await $build.wrappedValue.load(BuildModel.where { $0.id == id })
+            try! await $build.load(.build(id: id))
         }
         .task(id: build?.schemeId) {
             guard let schemeId = build?.schemeId else { return }
@@ -47,8 +54,8 @@ struct BuildItemViewContainer: View {
 }
 
 struct BuildItemView: View {
-    var build: BuildModel
-    var scheme: Scheme
+    var build: BuildModelValue
+    var scheme: SchemeValue
     
     var body: some View {
         HStack(spacing: 12) {
@@ -91,7 +98,7 @@ struct BuildItemView: View {
         return formatter
     }
     
-    func status(for build: BuildModel) -> some View {
+    func status(for build: BuildModelValue) -> some View {
         VStack(alignment: .trailing, spacing: 4) {
             // Time info
             if let start = build.startDate {
@@ -186,7 +193,7 @@ struct BuildItemView: View {
 }
 
 #Preview {
-    @Previewable @State var scheme = Scheme(name: "Beta", platforms: [.iOS, .macOS])
+    @Previewable @State var scheme = SchemeValue(name: "Beta", platforms: [.iOS, .macOS])
     
     VStack(spacing: 16) {
         BuildItemView(

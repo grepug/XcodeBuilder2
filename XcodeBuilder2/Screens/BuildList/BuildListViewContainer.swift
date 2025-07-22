@@ -14,7 +14,6 @@ struct BuildListViewContainer: View {
     
     @Environment(BuildManager.self) private var buildManager
     @Environment(EntryViewModel.self) private var entryVM
-    @Environment(ProjectDetailViewModel.self) private var vm
     
     var body: some View {
 //        @Bindable var entryVM = entryVM
@@ -34,7 +33,7 @@ struct BuildListViewContainer: View {
 }
 
 struct BuildListView: View {
-    var project: Project
+//    var project: Project
     var buildIds: [UUID]
     @Binding var buildSelection: UUID?
     

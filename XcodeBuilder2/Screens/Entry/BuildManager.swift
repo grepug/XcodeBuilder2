@@ -45,7 +45,7 @@ class BuildManager {
         }
     }
     
-    func createJob(payload: XcodeBuildPayload, buildModel: BuildModel) async throws(BuildManagerError) {
+    func createJob(payload: XcodeBuildPayload, buildModel: BuildModelValue) async throws(BuildManagerError) {
         let buildId = buildModel.id
         
         guard tasks[buildId] == nil else {

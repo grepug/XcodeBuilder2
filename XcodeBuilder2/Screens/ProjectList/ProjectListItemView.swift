@@ -8,8 +8,11 @@
 import SwiftUI
 import Core
 
+/// Presentation View Pattern - accepts backend value types as parameters
 struct ProjectListItemView: View {
-    var project: Project
+    let project: ProjectValue?
+    let schemeIds: [UUID]
+    let recentBuilds: [BuildModelValue]
     
     var body: some View {
         HStack {
@@ -17,14 +20,43 @@ struct ProjectListItemView: View {
                 .foregroundStyle(.secondary)
                 .imageScale(.large)
             
-            Text(project.displayName)
-                .font(.headline)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(project?.displayName ?? "Loading...")
+                    .font(.headline)
+                
+                HStack {
+                    Text("\(schemeIds.count) schemes")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    if !recentBuilds.isEmpty {
+                        Text("•")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text("\(recentBuilds.count) recent builds")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            
+            Spacer()
         }
     }
 }
 
 #Preview {
-    ProjectListItemView(project: .init(
-        displayName: "Life Sticker",
-    ))
+    ProjectListItemView(
+        project: ProjectValue(
+            bundleIdentifier: "com.example.app",
+            name: "ExampleApp", 
+            displayName: "Example Application",
+            gitRepoURL: URL(string: "https://github.com/example/app")!,
+            xcodeprojName: "ExampleApp.xcodeproj",
+            workingDirectoryURL: URL(fileURLWithPath: "/tmp/example")
+        ),
+        schemeIds: [UUID(), UUID()],
+        recentBuilds: []
+    )
 }

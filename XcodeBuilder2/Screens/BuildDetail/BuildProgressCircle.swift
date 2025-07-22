@@ -9,7 +9,7 @@ import SwiftUI
 import Core
 
 struct BuildProgressCircle: View {
-    let build: BuildModel
+    let build: BuildModelValue
     let size: CGFloat
     
     var body: some View {
@@ -66,12 +66,12 @@ struct BuildProgressCircle: View {
 }
 
 #Preview {
-    BuildProgressCircle(build: BuildModel(status: .running, progress: 0.75), size: 100)
+    BuildProgressCircle(build: BuildModelValue(status: .running, progress: 0.75), size: 100)
         .padding()
     
-    BuildProgressCircle(build: BuildModel(status: .completed), size: 100)
+    BuildProgressCircle(build: BuildModelValue(status: .completed), size: 100)
     
-    BuildProgressCircle(build: BuildModel(status: .failed), size: 100)
+    BuildProgressCircle(build: BuildModelValue(status: .failed), size: 100)
         
-    BuildProgressCircle(build: BuildModel(status: .queued), size: 100)
+    BuildProgressCircle(build: BuildModelValue(status: .queued), size: 100)
 }

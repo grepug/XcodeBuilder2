@@ -94,8 +94,8 @@ public struct LocalBackendService: BackendService {
     public func createBuild(_ build: BuildModelValue) async throws {
         try await db.write { db in
             let version = Version(version: build.versionString, buildNumber: build.buildNumber, commitHash: build.commitHash)
-            let deviceMetadata = DeviceMetadata(model: build.deviceMetadata, osVersion: build.osVersion, memory: build.memory, processor: build.processor)
-            
+            let deviceMetadata = build.deviceMetadata
+
             let dbBuild = BuildModel(
                 id: build.id,
                 schemeId: build.schemeId,
@@ -116,7 +116,7 @@ public struct LocalBackendService: BackendService {
     public func updateBuild(_ build: BuildModelValue) async throws {
         try await db.write { db in
             let version = Version(version: build.versionString, buildNumber: build.buildNumber, commitHash: build.commitHash)
-            let deviceMetadata = DeviceMetadata(model: build.deviceMetadata, osVersion: build.osVersion, memory: build.memory, processor: build.processor)
+            let deviceMetadata = build.deviceMetadata
             
             let dbBuild = BuildModel(
                 id: build.id,
@@ -371,16 +371,14 @@ public extension LocalBackendService {
                 return BuildModelValue(
                     id: dbBuild.id,
                     schemeId: dbBuild.schemeId,
-                    versionString: dbBuild.versionString,
-                    buildNumber: dbBuild.buildNumber,
+                    version: dbBuild.version,
                     createdAt: dbBuild.createdAt,
                     startDate: dbBuild.startDate,
                     endDate: dbBuild.endDate,
                     exportOptions: dbBuild.exportOptions,
                     status: Core.BuildStatus(rawValue: dbBuild.status.rawValue) ?? .queued,
                     progress: dbBuild.progress,
-                    commitHash: dbBuild.commitHash,
-                    deviceMetadata: dbBuild.deviceModel,
+                    deviceMetadata: dbBuild.deviceMetadata,
                     osVersion: dbBuild.osVersion,
                     memory: dbBuild.memory,
                     processor: dbBuild.processor
@@ -569,16 +567,14 @@ private struct LatestBuildsRequest: FetchKeyRequest {
             BuildModelValue(
                 id: build.id,
                 schemeId: build.schemeId,
-                versionString: build.versionString,
-                buildNumber: build.buildNumber,
+                version: build.version,
                 createdAt: build.createdAt,
                 startDate: build.startDate,
                 endDate: build.endDate,
                 exportOptions: build.exportOptions,
                 status: Core.BuildStatus(rawValue: build.status.rawValue) ?? .queued,
                 progress: build.progress,
-                commitHash: build.commitHash,
-                deviceMetadata: build.deviceModel,
+                deviceMetadata: build.deviceMetadata,
                 osVersion: build.osVersion,
                 memory: build.memory,
                 processor: build.processor

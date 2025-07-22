@@ -16,7 +16,7 @@ public struct XcodeBuildCommand: Sendable {
     }
 
     let kind: Kind
-    var scheme: Scheme
+    var scheme: SchemeValue
     var version: Version
     var platform: Platform
     var exportOption: ExportOption?
@@ -73,7 +73,7 @@ public struct XcodeBuildCommand: Sendable {
         """
     }
     
-    public init(kind: Kind, scheme: Scheme, version: Version, platform: Platform, exportOption: ExportOption? = nil, projectURL: URL, archiveURL: URL, derivedDataURL: URL, exportURL: URL?) {
+    public init(kind: Kind, scheme: SchemeValue, version: Version, platform: Platform, exportOption: ExportOption? = nil, projectURL: URL, archiveURL: URL, derivedDataURL: URL, exportURL: URL?) {
         self.kind = kind
         self.scheme = scheme
         self.version = version

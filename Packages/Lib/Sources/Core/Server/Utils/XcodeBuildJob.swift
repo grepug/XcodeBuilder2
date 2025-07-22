@@ -23,14 +23,14 @@ public enum XcodeBuildJobLogCategory: String, Sendable, CaseIterable {
 
 public actor XcodeBuildJob: Sendable {
     let payload: XcodeBuildPayload
-    let log: (BuildLog) -> Void
+    let log: (BuildLogValue) -> Void
     
     public typealias Stream = AsyncThrowingStream<XcodeBuildProgress, Error>
     
     @Dependency(\.xcodeBuildPathManager) var pathManager
     @Dependency(\.ipaUploader) var ipaUploader
 
-    public init(payload: XcodeBuildPayload, log: @escaping (BuildLog) -> Void) {
+    public init(payload: XcodeBuildPayload, log: @escaping (BuildLogValue) -> Void) {
         self.payload = payload
         self.log = log
     }
@@ -148,7 +148,7 @@ private extension XcodeBuildJob {
             .map { ensuredURL($0) }
     }
     
-    var scheme: Scheme {
+    var scheme: SchemeValue {
         payload.scheme
     }
 

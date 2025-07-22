@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		2AD265582E23BACD009F5057 /* Sharing in Frameworks */ = {isa = PBXBuildFile; productRef = 2AD265572E23BACD009F5057 /* Sharing */; };
 		2AD265752E23BBB5009F5057 /* Lib in Frameworks */ = {isa = PBXBuildFile; productRef = 2AD265742E23BBB5009F5057 /* Lib */; };
+		2AD87EF12E2F6D44006D1DAF /* Core in Frameworks */ = {isa = PBXBuildFile; productRef = 2AD87EF02E2F6D44006D1DAF /* Core */; };
+		2AD87EF32E2F6D44006D1DAF /* LocalBackend in Frameworks */ = {isa = PBXBuildFile; productRef = 2AD87EF22E2F6D44006D1DAF /* LocalBackend */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,6 +62,8 @@
 			files = (
 				2AD265582E23BACD009F5057 /* Sharing in Frameworks */,
 				2AD265752E23BBB5009F5057 /* Lib in Frameworks */,
+				2AD87EF12E2F6D44006D1DAF /* Core in Frameworks */,
+				2AD87EF32E2F6D44006D1DAF /* LocalBackend in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -139,6 +143,8 @@
 			packageProductDependencies = (
 				2AD265572E23BACD009F5057 /* Sharing */,
 				2AD265742E23BBB5009F5057 /* Lib */,
+				2AD87EF02E2F6D44006D1DAF /* Core */,
+				2AD87EF22E2F6D44006D1DAF /* LocalBackend */,
 			);
 			productName = XcodeBuilder2;
 			productReference = 2AD264FA2E23BA03009F5057 /* XcodeBuilder2.app */;
@@ -612,6 +618,14 @@
 		2AD265742E23BBB5009F5057 /* Lib */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Lib;
+		};
+		2AD87EF02E2F6D44006D1DAF /* Core */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Core;
+		};
+		2AD87EF22E2F6D44006D1DAF /* LocalBackend */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LocalBackend;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

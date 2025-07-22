@@ -10,9 +10,9 @@ import Core
 import SharingGRDB
 
 struct BuildEditor: View {
-    var project: Project
-    var schemes: [Scheme]
-    @Binding var build: BuildModel
+    var project: ProjectValue
+    var schemes: [SchemeValue]
+    @Binding var build: BuildModelValue
     var versions: [Version]
     @Binding var version: Version
     var branches: [GitBranch]
@@ -150,16 +150,16 @@ struct BuildEditor: View {
 }
 
 #Preview {
-    @Previewable @State var project = Project(
+    @Previewable @State var project = ProjectValue(
         displayName: "Example Project",
     )
     
-    @Previewable @State var schemes: [Scheme] = [
+    @Previewable @State var schemes: [SchemeValue] = [
         .init(name: "Beta", platforms: [.iOS, .macOS]),
         .init(name: "Release", platforms: [.iOS]),
     ]
     
-    @Previewable @State var build = BuildModel()
+    @Previewable @State var build = BuildModelValue()
     
     @Previewable @State var versionSelection: Version?
     
