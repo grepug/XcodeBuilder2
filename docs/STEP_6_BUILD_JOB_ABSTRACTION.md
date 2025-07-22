@@ -23,7 +23,74 @@ RemoteBackendService → HTTP API calls (remote server builds)
 CloudBackendService → Cloud Provider APIs (cloud builds)
 ```
 
+### Core Module Client/Server Architecture
+
+**Problem**: Core module will be imported by both iOS client and Vapor server, but current structure mixes client/server concerns.
+
+**Solution**: Organize Core with clear Client/Server separation:
+
+```
+iOS Client imports:          Vapor Server imports:
+- Core/Models (shared)       - Core/Models (shared)
+- Core/Client/Services       - Core/Server/Utils
+- Core/Client/Dependencies   - Core/Server/Commands
+- Core/Shared               - Core/Shared
+
+LocalBackend (iOS only):     RemoteBackend (Vapor server):
+- Uses Core/Server/Utils     - Uses Core/Server/Utils
+- CLI tools, file system     - Same CLI tools on server
+- Local build execution      - Remote build execution
+```
+
+**Key Insight**:
+
+- **Client-side**: Protocols, dependency injection, UI abstractions
+- **Server-side**: CLI tools, file operations, system commands
+- **Shared**: Models, value types, pure functions
+- **Backend-agnostic**: Dependency injection works with any backend (Local, Remote, Cloud)
+
 ## Implementation Plan
+
+### 6.0 Reorganize Core Module Structure (Prerequisites)
+
+**IMPORTANT**: Before implementing build job abstraction, reorganize Core module for Client/Server separation since it will be imported by both iOS client and Vapor server.
+
+**Current Core Structure** (mixed Client/Server concerns):
+
+```
+Core/
+├── Models/ (shared - OK)
+├── Services/ (client-specific - should be Client/)
+└── Utils/ (server-specific - should be Server/)
+```
+
+**New Core Structure** (clear separation):
+
+```
+Core/
+├── Models/ (shared value types)
+├── Client/ (iOS client-specific)
+│   ├── Services/ (BackendServiceProtocol, dependency injection)
+│   └── Dependencies/ (moved from LocalBackend)
+├── Server/ (Vapor server-specific)
+│   ├── Utils/ (CLI tools, file operations)
+│   └── Commands/ (build commands, system operations)
+└── Shared/ (truly shared utilities)
+```
+
+**File Moves Required**:
+
+1. `Core/Services/` → `Core/Client/Services/` (client protocols)
+2. `Core/Utils/` → `Core/Server/Utils/` (server CLI tools)
+3. `LocalBackend/BackendService+Dependency.swift` → `Core/Client/Dependencies/BackendService+Dependency.swift`
+4. `LocalBackend/BackendQuery+SharingKey.swift` → `Core/Client/Dependencies/BackendQuery+SharingKey.swift`
+
+**Rationale**:
+
+- **Client/Services**: BackendServiceProtocol is client-side abstraction
+- **Server/Utils**: XcodeBuildJob, CLI commands are server-side operations
+- **Client/Dependencies**: Dependency injection is client-side concern, backend-agnostic
+- **Shared separation**: Clear distinction between what's truly shared vs client/server specific
 
 ### 6.1 Extend Backend Service Protocol
 
@@ -172,7 +239,31 @@ class BuildManager {
 
 ## Files to Modify
 
-### New Files
+### Core Module Reorganization (Step 6.0)
+
+**New Folders**:
+
+- `Packages/Lib/Sources/Core/Client/Services/` - Client-side service protocols
+- `Packages/Lib/Sources/Core/Client/Dependencies/` - Backend-agnostic dependency injection
+- `Packages/Lib/Sources/Core/Server/Utils/` - Server-side utilities and CLI tools
+- `Packages/Lib/Sources/Core/Server/Commands/` - Server-side build commands
+- `Packages/Lib/Sources/Core/Shared/` - Truly shared utilities
+
+**File Moves**:
+
+- `Core/Services/BackendServiceProtocol.swift` → `Core/Client/Services/BackendServiceProtocol.swift`
+- `Core/Services/BackendModels.swift` → `Core/Client/Services/BackendModels.swift`
+- `Core/Services/BackendType.swift` → `Core/Client/Services/BackendType.swift`
+- `Core/Utils/XcodeBuildJob.swift` → `Core/Server/Utils/XcodeBuildJob.swift`
+- `Core/Utils/XcodeBuildPathManager.swift` → `Core/Server/Utils/XcodeBuildPathManager.swift`
+- `Core/Utils/IPAUploader.swift` → `Core/Server/Utils/IPAUploader.swift`
+- `Core/Utils/Commands/` → `Core/Server/Commands/`
+- `Core/Utils/ensuredURL.swift` → `Core/Shared/ensuredURL.swift` (if truly shared)
+- `Core/Utils/updateVersions.swift` → `Core/Server/Utils/updateVersions.swift`
+- `LocalBackend/BackendService+Dependency.swift` → `Core/Client/Dependencies/BackendService+Dependency.swift`
+- `LocalBackend/BackendQuery+SharingKey.swift` → `Core/Client/Dependencies/BackendQuery+SharingKey.swift`
+
+### New Files (Step 6.1-6.5)
 
 - `Packages/Lib/Sources/Core/Models/BuildJob.swift` - Clean value types for all backends
 - `Packages/Lib/Sources/LocalBackend/LocalBuildJobManager.swift` - XcodeBuildJob integration (LOCAL ONLY)
@@ -181,21 +272,24 @@ class BuildManager {
 
 ### Modified Files
 
-- `Packages/Lib/Sources/Core/Services/BackendServiceProtocol.swift` - Add build job method signatures (NO implementations)
+- `Packages/Lib/Sources/Core/Client/Services/BackendServiceProtocol.swift` - Add build job method signatures (NO implementations)
 - `Packages/Lib/Sources/LocalBackend/LocalBackendService.swift` - Implement LOCAL build job methods using XcodeBuildJob
 - `XcodeBuilder2/Screens/Entry/BuildManager.swift` - **Become completely backend-agnostic**
 - `docs/STEP_*` - Renumber all existing steps +1
 
 ## Expected Benefits
 
-1. **Backend Agnostic UI**: BuildManager works with Local, Remote, Cloud, or any future backend
-2. **Implementation Flexibility**: Each backend can use completely different approaches (CLI, HTTP, Cloud APIs)
-3. **Clean Architecture**: UI layer only deals with value types and protocol interfaces
-4. **Testability**: Easy to test with MockBackendService implementing the protocol methods
-5. **Extensibility**: New backend services can be added with completely custom build implementations
-6. **Separation of Concerns**: UI handles state, LocalBackend handles CLI tools, RemoteBackend handles HTTP, etc.
-7. **Type Safety**: Strongly typed interfaces between all layers
-8. **No Leaky Abstractions**: XcodeBuildJob stays completely within LocalBackendService
+1. **Clear Client/Server Separation**: Core module organized for both iOS client and Vapor server imports
+2. **Backend Agnostic UI**: BuildManager works with Local, Remote, Cloud, or any future backend
+3. **Implementation Flexibility**: Each backend can use completely different approaches (CLI, HTTP, Cloud APIs)
+4. **Clean Architecture**: UI layer only deals with value types and protocol interfaces
+5. **Shared Code Reusability**: Server can import Core/Models and Core/Server, Client imports Core/Models and Core/Client
+6. **Testability**: Easy to test with MockBackendService implementing the protocol methods
+7. **Extensibility**: New backend services can be added with completely custom build implementations
+8. **Separation of Concerns**: UI handles state, LocalBackend handles CLI tools, RemoteBackend handles HTTP, etc.
+9. **Type Safety**: Strongly typed interfaces between all layers
+10. **No Leaky Abstractions**: XcodeBuildJob stays completely within Core/Server (used by LocalBackendService)
+11. **Dependency Injection Clarity**: Backend-agnostic dependency injection in Core/Client
 
 ## Architecture Benefits
 
@@ -216,14 +310,36 @@ CloudBackendService → CloudProviderSDK     // Cloud: Provider APIs
 MockBackendService → InMemorySimulation    // Testing: Mock data
 ## Migration Strategy
 
-1. **Create protocol method signatures** (non-breaking)
-2. **Implement LocalBackendService build job methods** using XcodeBuildJob
-3. **Create parallel BuildManager methods** using backend service dependency
-4. **Test with LocalBackendService and MockBackendService**
-5. **Remove old direct XcodeBuildJob usage** from BuildManager
-6. **Verify BuildManager is backend-agnostic**
+1. **Reorganize Core module structure** (Client/Server separation for iOS + Vapor compatibility)
+2. **Move dependency injection files** from LocalBackend to Core/Client/Dependencies
+3. **Create protocol method signatures** (non-breaking)
+4. **Implement LocalBackendService build job methods** using XcodeBuildJob
+5. **Create parallel BuildManager methods** using backend service dependency
+6. **Test with LocalBackendService and MockBackendService**
+7. **Remove old direct XcodeBuildJob usage** from BuildManager
+8. **Verify BuildManager is backend-agnostic**
 
 ## Implementation Strategy
+
+### Phase 0: Core Module Reorganization
+```bash
+# Create new folder structure
+mkdir -p Packages/Lib/Sources/Core/Client/{Services,Dependencies}
+mkdir -p Packages/Lib/Sources/Core/Server/{Utils,Commands}
+mkdir -p Packages/Lib/Sources/Core/Shared
+
+# Move files to proper locations
+mv Core/Services/* Core/Client/Services/
+mv Core/Utils/XcodeBuildJob.swift Core/Server/Utils/
+mv Core/Utils/XcodeBuildPathManager.swift Core/Server/Utils/
+mv Core/Utils/IPAUploader.swift Core/Server/Utils/
+mv Core/Utils/Commands Core/Server/Commands/
+mv Core/Utils/updateVersions.swift Core/Server/Utils/
+mv LocalBackend/BackendService+Dependency.swift Core/Client/Dependencies/
+mv LocalBackend/BackendQuery+SharingKey.swift Core/Client/Dependencies/
+
+# Update imports throughout codebase
+```
 
 ### Phase 1: Protocol Foundation
 ```swift
