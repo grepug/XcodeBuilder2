@@ -1,6 +1,8 @@
 import Foundation
 
 // MARK: - Backend Model Protocols
+
+// MARK: Project Protocol
 public protocol ProjectProtocol: Sendable, Identifiable, Hashable {
     var bundleIdentifier: String { get }
     var name: String { get }
@@ -12,6 +14,7 @@ public protocol ProjectProtocol: Sendable, Identifiable, Hashable {
     var id: String { get }
 }
 
+// MARK: Scheme Protocol  
 public protocol SchemeProtocol: Sendable, Identifiable, Hashable {
     var id: UUID { get }
     var projectBundleIdentifier: String { get }
@@ -20,6 +23,7 @@ public protocol SchemeProtocol: Sendable, Identifiable, Hashable {
     var order: Int { get }
 }
 
+// MARK: Build Model Protocol
 public protocol BuildModelProtocol: Sendable, Identifiable, Hashable {
     var id: UUID { get }
     var schemeId: UUID { get }

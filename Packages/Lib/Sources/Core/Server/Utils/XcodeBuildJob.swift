@@ -1,7 +1,9 @@
 import Foundation
 import Dependencies
 
-// MARK: - DateFormatter Extension
+// MARK: - Supporting Types
+
+// MARK: DateFormatter Extension
 private extension DateFormatter {
     static let logFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -13,6 +15,7 @@ private extension DateFormatter {
 // XcodeBuildPayload is now in Core/Shared/Models/BuildPayload.swift
 // XcodeBuildProgress is now in Core/Shared/Models/BuildPayload.swift
 
+// MARK: Log Categories
 public enum XcodeBuildJobLogCategory: String, Sendable, CaseIterable {
     case clone = "Clone Repository"
     case resolveDependencies = "Resolve Dependencies"
@@ -20,6 +23,20 @@ public enum XcodeBuildJobLogCategory: String, Sendable, CaseIterable {
     case export = "Export"
     case cleanup = "Cleanup"
 }
+
+// MARK: Progress Tracking Helper
+private struct ProgressTracker {
+    let totalSteps: Int
+    let baseProgress: Double
+    let maxProgress: Double
+    
+    func progress(for step: Int) -> Double {
+        let stepProgress = Double(step) / Double(totalSteps)
+        return baseProgress + (stepProgress * (maxProgress - baseProgress))
+    }
+}
+
+// MARK: - Main XcodeBuildJob Actor
 
 public actor XcodeBuildJob: Sendable {
     let payload: XcodeBuildPayload
@@ -52,13 +69,13 @@ public actor XcodeBuildJob: Sendable {
                 continuation.finish()
             } catch {
                 if error is CancellationError {
-                    log("🚫 BUILD CANCELLED", .cleanup, at: .warning)
+                    log("🚫 BUILD CANCELLED", .cleanup, level: .warning)
                 } else {
                     log("""
                 ❌ BUILD FAILED
                    • Error: \(error.localizedDescription)
                    • Error Type: \(type(of: error))
-                """, .cleanup, at: .error)
+                """, .cleanup, level: .error)
                 }
 
                 try await self.cleanup()
@@ -88,7 +105,7 @@ public actor XcodeBuildJob: Sendable {
            • Version: \(payload.version.displayString)
            • Platforms: \(payload.scheme.platforms.map(\.rawValue).joined(separator: ", "))
            • Export Options: \(payload.exportOptions.map(\.rawValue).joined(separator: ", "))
-        """, .clone, at: .info)
+        """, .clone, level: .info)
         
         yield(.init(progress: 0.05, message: "🚀 Build started - Initializing..."))
         
@@ -109,24 +126,16 @@ public actor XcodeBuildJob: Sendable {
         try Task.checkCancellation()
         yield(.init(progress: 0.95, message: "🧹 Cleanup completed"))
         
-        log("✅ BUILD COMPLETED SUCCESSFULLY", .cleanup, at: .info)
+        log("✅ BUILD COMPLETED SUCCESSFULLY", .cleanup, level: .info)
         yield(.init(progress: 1.0, message: "✅ Build completed successfully!", isFinished: true))
     }
 }
 
-// MARK: - Progress Helper
-private struct ProgressTracker {
-    let totalSteps: Int
-    let baseProgress: Double
-    let maxProgress: Double
-    
-    func progress(for step: Int) -> Double {
-        let stepProgress = Double(step) / Double(totalSteps)
-        return baseProgress + (stepProgress * (maxProgress - baseProgress))
-    }
-}
+// MARK: - Private Build Step Methods
 
 private extension XcodeBuildJob {
+    
+    // MARK: Path Properties
     var projectURL: URL {
         ensuredURL(pathManager.projectURL(for: payload.project, build: payload.build))
     }
@@ -152,34 +161,36 @@ private extension XcodeBuildJob {
         payload.scheme
     }
 
-    func log(_ content: String, _ category: XcodeBuildJobLogCategory, at level: BuildLogLevel = .info) {
+    // MARK: Logging
+    func log(_ content: String, _ category: XcodeBuildJobLogCategory, level: BuildLogLevel = .info) {
         let timestamp = DateFormatter.logFormatter.string(from: Date())
         let formattedContent = "[\(timestamp)] \(content)"
         let logEntry = BuildLogValue(buildId: payload.buildId, category: category.rawValue, level: level, content: formattedContent)
         log(logEntry)
     }
     
+    // MARK: Build Steps
     func cloneRepository() async throws {
         log("""
         📂 CLONE STAGE: Starting repository clone
            • Repository URL: \(payload.project.gitRepoURL)
            • Target Tag: \(payload.version.displayString)
            • Clone Path: \(projectURL.path())
-        """, .clone, at: .info)
+        """, .clone, level: .info)
         
         do {
             let gitCommand = GitCommand(pathURL: projectURL)
 
             switch payload.gitCloneKind {
             case .tag:
-                log("🔧 DEBUG: Cloning tag \(payload.version.tagName)", .clone, at: .debug)
+                log("🔧 DEBUG: Cloning tag \(payload.version.tagName)", .clone, level: .debug)
                 
                 try await gitCommand.clone(
                     remoteURL: payload.project.gitRepoURL,
                     tag: payload.version.tagName,
                 )
             case .branch(let branchName):
-                log("🔧 DEBUG: Cloning branch \(branchName)", .clone, at: .debug)
+                log("🔧 DEBUG: Cloning branch \(branchName)", .clone, level: .debug)
 
                 try await gitCommand.cloneTagAndPush(
                     version: payload.version, 
@@ -188,9 +199,9 @@ private extension XcodeBuildJob {
                 )
             }
 
-            log("✅ Repository cloned successfully", .clone, at: .info)
+            log("✅ Repository cloned successfully", .clone, level: .info)
             
-            log("🔄 Updating project versions...", .clone, at: .info)
+            log("🔄 Updating project versions...", .clone, level: .info)
             
             updateVersions(
                 url: projectURL,
@@ -201,12 +212,12 @@ private extension XcodeBuildJob {
             log("""
             ✅ Project versions updated to \(payload.version.displayString)
             📂 CLONE STAGE: Completed successfully
-            """, .clone, at: .info)
+            """, .clone, level: .info)
         } catch {
             log("""
             ❌ CLONE STAGE: Failed to clone repository
                • Error: \(error.localizedDescription)
-            """, .clone, at: .error)
+            """, .clone, level: .error)
             
             throw error
         }
@@ -218,7 +229,7 @@ private extension XcodeBuildJob {
            • Project: \(payload.project.name)
            • Project Path: \(xcodeprojURL.path())
            • Scheme: \(scheme.name)
-        """, .resolveDependencies, at: .info)
+        """, .resolveDependencies, level: .info)
 
         do {
             let command = XcodeBuildCommand(
@@ -235,19 +246,19 @@ private extension XcodeBuildJob {
             log("""
             🔧 DEBUG: Executing command:
                • Command: \(command.string)
-            """, .resolveDependencies, at: .debug)
+            """, .resolveDependencies, level: .debug)
             
             try await runShellCommand2(command.string).get()
 
             log("""
             ✅ Package dependencies resolved successfully
             🔗 RESOLVE DEPENDENCIES STAGE: Completed successfully
-            """, .resolveDependencies, at: .info)
+            """, .resolveDependencies, level: .info)
         } catch {
             log("""
             ❌ RESOLVE DEPENDENCIES STAGE: Failed to resolve package dependencies
                • Error: \(error.localizedDescription)
-            """, .resolveDependencies, at: .error)
+            """, .resolveDependencies, level: .error)
             throw error
         }
     }
@@ -260,7 +271,7 @@ private extension XcodeBuildJob {
            • Project: \(payload.project.name)
            • Archive Path: \(archiveURL.path())
            • Target Platforms: \(platforms.map(\.rawValue).joined(separator: ", "))
-        """, .archive, at: .info)
+        """, .archive, level: .info)
         
         assert(!platforms.isEmpty, "No platforms found in project \(payload.project.name)")
         assert(Set(platforms).count == platforms.count, "Duplicate platforms found: \(platforms)")
@@ -278,7 +289,7 @@ private extension XcodeBuildJob {
             )
         }
         
-        log("🔧 DEBUG: Generated \(commands.count) archive commands for platforms", .archive, at: .debug)
+        log("🔧 DEBUG: Generated \(commands.count) archive commands for platforms", .archive, level: .debug)
         
         do {
             try await withThrowingTaskGroup { group in
@@ -287,7 +298,7 @@ private extension XcodeBuildJob {
                         let delaySeconds = Double(index) * 60 * 0.3
                         
                         if delaySeconds > 0 {
-                            await self.log("⏱️  Waiting \(Int(delaySeconds))s before starting \(command.platform.rawValue) build", .archive, at: .info)
+                            await self.log("⏱️  Waiting \(Int(delaySeconds))s before starting \(command.platform.rawValue) build", .archive, level: .info)
                             try await Task.sleep(for: .seconds(delaySeconds))
                         }
                         
@@ -295,15 +306,15 @@ private extension XcodeBuildJob {
                         🔨 Starting archive for platform: \(command.platform.rawValue)
                         🔧 DEBUG: Archive command:
                            • \(command.string)
-                        """, .archive, at: .debug)
+                        """, .archive, level: .debug)
                         
                         for try await output in await runShellCommand2(command.string) {
-                            await self.log("📊 Archive output: \(output)", .archive, at: .debug)
+                            await self.log("📊 Archive output: \(output)", .archive, level: .debug)
                         }
                         
                         try Task.checkCancellation()
 
-                        await self.log("✅ Archive completed for platform: \(command.platform.rawValue)", .archive, at: .info)
+                        await self.log("✅ Archive completed for platform: \(command.platform.rawValue)", .archive, level: .info)
 
                         try await self.exportArchive(platform: command.platform)
                     }
@@ -315,15 +326,15 @@ private extension XcodeBuildJob {
             log("""
             ✅ All platforms archived successfully
             📁 ARCHIVE STAGE: Completed successfully
-            """, .archive, at: .info)
+            """, .archive, level: .info)
         } catch {
             if error is CancellationError {
-                log("🚫 ARCHIVE STAGE: Archive process was cancelled", .archive, at: .warning)
+                log("🚫 ARCHIVE STAGE: Archive process was cancelled", .archive, level: .warning)
             } else {
                 log("""
             ❌ ARCHIVE STAGE: Failed to archive project
                • Error: \(error.localizedDescription)
-            """, .archive, at: .error)
+            """, .archive, level: .error)
             }
             
             throw error
@@ -334,14 +345,14 @@ private extension XcodeBuildJob {
         var exportOptions = payload.exportOptions
         
         if platform != .iOS {
-            log("🔧 DEBUG: Removing release testing option for non-iOS platform", .export, at: .debug)
+            log("🔧 DEBUG: Removing release testing option for non-iOS platform", .export, level: .debug)
             exportOptions.removeAll { $0 == .releaseTesting }
         }
         
         log("""
         📤 EXPORT STAGE: Starting archive export for platform \(platform.rawValue)
            • Export Options: \(exportOptions.map(\.rawValue).joined(separator: ", "))
-        """, .export, at: .info)
+        """, .export, level: .info)
         
         assert(Set(exportOptions).count == exportOptions.count, "Duplicate export options found: \(exportOptions)")
         assert(exportOptions.isEmpty == false, "No export options provided for platform \(platform.rawValue)")
@@ -383,26 +394,26 @@ private extension XcodeBuildJob {
                         📦 Exporting to App Store for platform \(platform.rawValue)
                         🔧 DEBUG: Export command:
                            • \(exportToAppStoreCommand.string)
-                        """, .export, at: .debug)
+                        """, .export, level: .debug)
                         
                         try await runShellCommand2(exportToAppStoreCommand.string).get()
                         
-                        await self.log("✅ App Store export completed for \(platform.rawValue)", .export, at: .info)
+                        await self.log("✅ App Store export completed for \(platform.rawValue)", .export, level: .info)
                     case .releaseTesting:
                         await self.log("""
                         🧪 Exporting to Release Testing for platform \(platform.rawValue)
                         🔧 DEBUG: Export command:
                            • \(exportToReleaseTestingCommand.string)
-                        """, .export, at: .debug)
+                        """, .export, level: .debug)
                         
                         try await runShellCommand2(exportToReleaseTestingCommand.string).get()
                         
-                        await self.log("✅ Release Testing export completed for \(platform.rawValue)", .export, at: .info)
+                        await self.log("✅ Release Testing export completed for \(platform.rawValue)", .export, level: .info)
                         
-                        await self.log("📤 Starting IPA upload for \(platform.rawValue)", .export, at: .info)
+                        await self.log("📤 Starting IPA upload for \(platform.rawValue)", .export, level: .info)
                         
                         _ = try await uploader.upload(project: project, version: version, ipaURL: exportToReleaseTestingCommand.exportURL!)
-                        await self.log("✅ IPA upload completed for \(platform.rawValue)", .export, at: .info)
+                        await self.log("✅ IPA upload completed for \(platform.rawValue)", .export, level: .info)
                     }
                 }
             }
@@ -413,7 +424,7 @@ private extension XcodeBuildJob {
         log("""
         ✅ All exports completed for platform \(platform.rawValue)
         📤 EXPORT STAGE: Completed successfully for platform \(platform.rawValue)
-        """, .export, at: .info)
+        """, .export, level: .info)
     }
 
     func cleanup() async throws {
@@ -421,25 +432,25 @@ private extension XcodeBuildJob {
         🧹 CLEANUP STAGE: Starting project cleanup
            • Derived Data Path: \(derivedDataURL.path())
            • Project Path: \(projectURL.path())
-        """, .cleanup, at: .info)
+        """, .cleanup, level: .info)
         
         do {
-            log("🗑️  Removing derived data directory...", .cleanup, at: .info)
+            log("🗑️  Removing derived data directory...", .cleanup)
             
             try FileManager.default.removeItem(atPath: derivedDataURL.path())
-            log("✅ Derived data directory removed successfully", .cleanup, at: .info)
+            log("✅ Derived data directory removed successfully", .cleanup)
             
-            log("🗑️  Removing project directory...", .cleanup, at: .info)
+            log("🗑️  Removing project directory...", .cleanup)
             try FileManager.default.removeItem(atPath: projectURL.path())
-            log("✅ Project directory removed successfully", .cleanup, at: .info)
+            log("✅ Project directory removed successfully", .cleanup)
 
-            log("🧹 CLEANUP STAGE: Completed successfully", .cleanup, at: .info)
+            log("🧹 CLEANUP STAGE: Completed successfully", .cleanup)
         } catch {
             log("""
             ⚠️  CLEANUP STAGE: Failed to clean up project
                • Error: \(error.localizedDescription)
                • This may not affect the build result
-            """, .cleanup, at: .warning)
+            """, .cleanup, level: .warning)
         }
     }
 }

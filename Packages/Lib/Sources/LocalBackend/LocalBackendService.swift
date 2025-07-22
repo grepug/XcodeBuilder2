@@ -7,6 +7,12 @@ import Core
 public struct LocalBackendService: BackendService {
     @Dependency(\.defaultDatabase) var db
     @Dependency(\.localBuildJobManager) var buildJobManager
+    
+    // Internal data services - not exposed in public API
+    @Dependency(\.projectDataService) private var projectService
+    @Dependency(\.schemeDataService) private var schemeService
+    @Dependency(\.buildDataService) private var buildService
+    @Dependency(\.logDataService) private var logService
 
     public init() {
         // Dependencies injection handles database access and build job management
@@ -15,214 +21,59 @@ public struct LocalBackendService: BackendService {
     // MARK: - Write Operations
 
     public func createProject(_ project: ProjectValue) async throws {
-        try await db.write { db in
-            let dbProject = Project(
-                bundleIdentifier: project.bundleIdentifier,
-                createdAt: project.createdAt,
-                name: project.name,
-                displayName: project.displayName,
-                gitRepoURL: project.gitRepoURL,
-                xcodeprojName: project.xcodeprojName,
-                workingDirectoryURL: project.workingDirectoryURL
-            )
-
-            try Project.insert { dbProject }.execute(db)
-        }
+        try await projectService.createProject(project)
     }
 
     public func updateProject(_ project: ProjectValue) async throws {
-        try await db.write { db in
-            try Project
-                .where { $0.bundleIdentifier == project.bundleIdentifier }
-                .update { 
-                    $0.bundleIdentifier = project.bundleIdentifier
-                    $0.createdAt = project.createdAt
-                    $0.name = project.name
-                    $0.displayName = project.displayName
-                    $0.gitRepoURL = project.gitRepoURL
-                    $0.xcodeprojName = project.xcodeprojName
-                    $0.workingDirectoryURL = project.workingDirectoryURL
-                 }
-                .execute(db)
-        }
+        try await projectService.updateProject(project)
     }
 
     public func deleteProject(id: String) async throws {
-        try await db.write { db in
-            _ = try Project
-                .where { $0.bundleIdentifier == id }
-                .delete()
-                .execute(db)
-        }
+        try await projectService.deleteProject(id: id)
     }
 
     public func createScheme(_ scheme: SchemeValue) async throws {
-        try await db.write { db in
-            let dbScheme = Scheme(
-                id: scheme.id,
-                projectBundleIdentifier: scheme.projectBundleIdentifier,
-                name: scheme.name,
-                platforms: scheme.platforms,
-                order: scheme.order
-            )
-            try Scheme.insert { dbScheme }.execute(db)
-        }
+        try await schemeService.createScheme(scheme)
     }
 
     public func updateScheme(_ scheme: SchemeValue) async throws {
-        try await db.write { db in
-            let dbScheme = Scheme(
-                id: scheme.id,
-                projectBundleIdentifier: scheme.projectBundleIdentifier,
-                name: scheme.name,
-                platforms: scheme.platforms,
-                order: scheme.order
-            )
-            try Scheme.update(dbScheme).execute(db)
-        }
+        try await schemeService.updateScheme(scheme)
     }
 
     public func deleteScheme(id: UUID) async throws {
-        try await db.write { db in
-            _ = try Scheme
-                .where { $0.id == id }
-                .delete()
-                .execute(db)
-        }
+        try await schemeService.deleteScheme(id: id)
     }
 
     public func createBuild(_ build: BuildModelValue) async throws {
-        try await db.write { db in
-            let version = Version(version: build.versionString, buildNumber: build.buildNumber, commitHash: build.commitHash)
-            let deviceMetadata = build.deviceMetadata
-
-            let dbBuild = BuildModel(
-                id: build.id,
-                schemeId: build.schemeId,
-                version: version,
-                createdAt: build.createdAt,
-                startDate: build.startDate,
-                endDate: build.endDate,
-                exportOptions: build.exportOptions,
-                commitHash: build.commitHash,
-                status: BuildStatus(rawValue: build.status.rawValue) ?? .queued,
-                progress: build.progress,
-                deviceMetadata: deviceMetadata
-            )
-            try BuildModel.insert { dbBuild }.execute(db)
-        }
+        try await buildService.createBuild(build)
     }
 
     public func updateBuild(_ build: BuildModelValue) async throws {
-        try await db.write { db in
-            let version = Version(version: build.versionString, buildNumber: build.buildNumber, commitHash: build.commitHash)
-            let deviceMetadata = build.deviceMetadata
-            
-            let dbBuild = BuildModel(
-                id: build.id,
-                schemeId: build.schemeId,
-                version: version,
-                createdAt: build.createdAt,
-                startDate: build.startDate,
-                endDate: build.endDate,
-                exportOptions: build.exportOptions,
-                commitHash: build.commitHash,
-                status: BuildStatus(rawValue: build.status.rawValue) ?? .queued,
-                progress: build.progress,
-                deviceMetadata: deviceMetadata
-            )
-            try BuildModel.update(dbBuild).execute(db)
-        }
+        try await buildService.updateBuild(build)
     }
 
     public func deleteBuild(id: UUID) async throws {
-        try await db.write { db in
-            _ = try BuildModel
-                .where { $0.id == id }
-                .delete()
-                .execute(db)
-        }
+        try await buildService.deleteBuild(id: id)
     }
 
     public func createBuildLog(_ log: BuildLogValue) async throws {
-        try await db.write { db in
-            let dbLog = BuildLog(
-                id: log.id,
-                buildId: log.buildId,
-                category: log.category,
-                content: log.content,
-                level: log.level
-            )
-            try BuildLog.insert { dbLog }.execute(db)
-        }
+        try await logService.createBuildLog(log)
     }
 
     public func deleteBuildLogs(buildId: UUID) async throws {
-        try await db.write { db in
-            _ = try BuildLog
-                .where { $0.buildId == buildId }
-                .delete()
-                .execute(db)
-        }
+        try await logService.deleteBuildLogs(buildId: buildId)
     }
 
     public func createCrashLog(_ crashLog: CrashLogValue) async throws {
-        try await db.write { db in
-            let role = CrashLogRole(rawValue: crashLog.role.rawValue) ?? .foreground
-            let priority = CrashLogPriority(rawValue: crashLog.priority.rawValue) ?? .medium
-            
-            let dbCrashLog = CrashLog(
-                incidentIdentifier: crashLog.incidentIdentifier,
-                isMainThread: crashLog.isMainThread,
-                createdAt: crashLog.createdAt,
-                buildId: crashLog.buildId,
-                content: crashLog.content,
-                hardwareModel: crashLog.hardwareModel,
-                process: crashLog.process,
-                role: role,
-                dateTime: crashLog.dateTime,
-                launchTime: crashLog.launchTime,
-                osVersion: crashLog.osVersion,
-                note: crashLog.note,
-                fixed: crashLog.fixed,
-                priority: priority
-            )
-            try CrashLog.insert { dbCrashLog }.execute(db)
-        }
+        try await logService.createCrashLog(crashLog)
     }
 
     public func updateCrashLog(_ crashLog: CrashLogValue) async throws {
-        try await db.write { db in
-            let role = CrashLogRole(rawValue: crashLog.role.rawValue) ?? .foreground
-            let priority = CrashLogPriority(rawValue: crashLog.priority.rawValue) ?? .medium
-            
-            let dbCrashLog = CrashLog(
-                incidentIdentifier: crashLog.incidentIdentifier,
-                isMainThread: crashLog.isMainThread,
-                createdAt: crashLog.createdAt,
-                buildId: crashLog.buildId,
-                content: crashLog.content,
-                hardwareModel: crashLog.hardwareModel,
-                process: crashLog.process,
-                role: role,
-                dateTime: crashLog.dateTime,
-                launchTime: crashLog.launchTime,
-                osVersion: crashLog.osVersion,
-                note: crashLog.note,
-                fixed: crashLog.fixed,
-                priority: priority
-            )
-            try CrashLog.update(dbCrashLog).execute(db)
-        }
+        try await logService.updateCrashLog(crashLog)
     }
 
     public func deleteCrashLog(id: String) async throws {
-        try await db.write { db in
-            _ = try CrashLog
-                .where { $0.incidentIdentifier == id }
-                .delete()
-                .execute(db)
-        }
+        try await logService.deleteCrashLog(id: id)
     }
     
     // MARK: - Build Job Operations (Step 6) - LOCAL IMPLEMENTATION

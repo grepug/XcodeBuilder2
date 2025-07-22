@@ -1,11 +1,13 @@
 //
-//  ShellCommandRunner.swift
-//
+//  CommandRunner.swift
+//  Shell Command Execution Framework
 //
 //  Created by Kai Shao on 2024/4/12.
 //
 
 import Foundation
+
+// MARK: - Error Types
 
 /// Errors that can occur during shell command execution
 public enum ShellError: Error, LocalizedError, Equatable {
@@ -42,6 +44,8 @@ public enum ShellError: Error, LocalizedError, Equatable {
         }
     }
 }
+
+// MARK: - Configuration Types
 
 /// Configuration for shell command execution
 public struct ShellCommandConfig: Sendable {
@@ -102,6 +106,8 @@ public struct ShellCommandConfig: Sendable {
     )
 }
 
+// MARK: - Result Types
+
 /// Result of a shell command execution
 public struct ShellCommandResult: Sendable {
     public let output: String
@@ -123,6 +129,8 @@ public struct ShellCommandResult: Sendable {
         }
     }
 }
+
+// MARK: - Internal Command Runner Actor
 
 /// Actor responsible for running shell commands asynchronously
 private actor CommandRunner {
