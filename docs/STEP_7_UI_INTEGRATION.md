@@ -83,12 +83,16 @@
 ```swift
 // Container View Pattern
 struct ProjectListContainer: View {
-    @SharedReader(.allProjectIds) private var projectIds: [String] = []
+    @SharedReader private var projectIds: [String] = []
+
+    init() {
+        _projectIds = .init(wrappedValue: [], .allProjectIds)
+    }
 
     var body: some View {
         ProjectList(projectIds: projectIds)
             .task {
-                try? await $projectIds.load()
+                try? await $projectIds.load(.allProjectIds)
             }
     }
 }
@@ -111,9 +115,13 @@ struct ProjectList: View {
 struct ProjectListItemViewContainer: View {
     let projectId: String
 
-    @SharedReader(.project(id: projectId)) private var project: ProjectValue? = nil
+    @SharedReader private var project: ProjectValue? = nil
     @SharedReader(.schemeIds(projectId: projectId)) private var schemeIds: [UUID] = []
     @SharedReader(.latestBuilds(projectId: projectId, limit: 3)) private var recentBuilds: [BuildModelValue] = []
+
+    init(projectId: String) {
+        _project = .init(wrappedValue: nil, .project(id: projectId))
+    }
 
     var body: some View {
         ProjectListItemView(
@@ -122,7 +130,7 @@ struct ProjectListItemViewContainer: View {
             recentBuilds: recentBuilds
         )
         .task(id: projectId) {
-            try? await $project.load()
+            try? await $project.load(.project(id: projectId))
             try? await $schemeIds.load()
             try? await $recentBuilds.load()
         }
@@ -151,11 +159,18 @@ struct ProjectListItemView: View {
 struct ProjectDetailViewContainer: View {
     let projectId: String
 
-    @SharedReader(.project(id: projectId)) private var project: ProjectValue? = nil
-    @SharedReader(.schemeIds(projectId: projectId)) private var schemeIds: [UUID] = []
-    @SharedReader(.buildVersionStrings(projectId: projectId)) private var versionStrings: [String] = []
+    @SharedReader private var project: ProjectValue? = nil
+    @SharedReader private var schemeIds: [UUID] = []
+    @SharedReader private var versionStrings: [String] = []
 
     @State private var selectedVersion: String? = nil
+
+    init(projectId: String) {
+        self.projectId = projectId
+        _project = .init(wrappedValue: nil, .project(id: projectId))
+        _schemeIds = .init(wrappedValue: [], .schemeIds(projectId: projectId))
+        _versionStrings = .init(wrappedValue: [], .buildVersionStrings(projectId: projectId))
+    }
 
     var body: some View {
         ProjectDetailView(
@@ -166,9 +181,9 @@ struct ProjectDetailViewContainer: View {
             projectId: projectId
         )
         .task(id: projectId) {
-            try? await $project.load()
-            try? await $schemeIds.load()
-            try? await $versionStrings.load()
+            try? await $project.load(.project(id: projectId))
+            try? await $schemeIds.load(.schemeIds(projectId: projectId))
+            try? await $versionStrings.load(.buildVersionStrings(projectId: projectId))
         }
         .navigationTitle(project?.displayName ?? "Project")
     }
@@ -203,10 +218,15 @@ struct ProjectDetailView: View {
 struct BuildDetailViewContainer: View {
     let buildId: UUID
 
-    @SharedReader(.build(id: buildId)) private var build: BuildModelValue? = nil
+    @SharedReader private var build: BuildModelValue? = nil
 
     @State private var selectedTab: BuildDetailView.Tab = .logs
     @State private var includeDebugLogs: Bool = false
+
+    init(buildId: UUID) {
+        self.buildId = buildId
+        _build = .init(wrappedValue: nil, .build(id: buildId))
+    }
 
     var body: some View {
         BuildDetailView(
@@ -216,7 +236,7 @@ struct BuildDetailViewContainer: View {
             includeDebugLogs: $includeDebugLogs
         )
         .task(id: buildId) {
-            try? await $build.load()
+            try? await $build.load(.build(id: buildId))
         }
         .navigationTitle("Build #\(build?.buildNumber ?? 0)")
     }
@@ -341,12 +361,17 @@ struct ProjectDetailView: View {
 struct SomeViewContainer: View {
     let id: String
 
-    @SharedReader(.someQuery(id: id)) private var data: DataType? = nil
+    @SharedReader private var data: DataType? = nil
+
+    init(id: String) {
+        self.id = id
+        _data = .init(wrappedValue: nil, .someQuery(id: id))
+    }
 
     var body: some View {
         SomeView(data: data)
             .task(id: id) {
-                try? await $data.load()
+                try? await $data.load(.someQuery(id: id))
             }
     }
 }
@@ -357,8 +382,9 @@ struct SomeViewContainer: View {
 ```swift
 // Update query when parameters change
 .task(id: [param1, param2] as [AnyHashable]) {
-    $data = SharedReader(.newQuery(param1: param1, param2: param2))
-    try? await $data.load()
+    let queryKey = .newQuery(param1: param1, param2: param2)
+    $data = SharedReader(queryKey)
+    try? await $data.load(queryKey)
 }
 ```
 
@@ -442,7 +468,7 @@ struct SomeViewContainer: View {
 
 ## Usage Patterns
 
-- **Container Views**: `@SharedReader(.queryKey)` + `.task { try? await $data.load() }`
+- **Container Views**: `@SharedReader` properties initialized in `init()` with query keys + `.task { try? await $data.load(queryKey) }`
 - **Presentation Views**: Accept data parameters + focus on UI rendering
 - **Dynamic Queries**: Update SharedReader when parameters change
 - **Direct Actions**: `@Dependency(\.backendService)` + async methods in views## Architecture Benefits
