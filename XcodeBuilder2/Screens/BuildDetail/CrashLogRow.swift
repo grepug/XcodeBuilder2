@@ -26,7 +26,7 @@ struct CrashLogRowContainer: View {
             }
         }
         .task(id: id) {
-            try? await $crashLog.load(.crashLog(id: id))
+            try! await $crashLog.load(.crashLog(id: id))
         }
     }
 }

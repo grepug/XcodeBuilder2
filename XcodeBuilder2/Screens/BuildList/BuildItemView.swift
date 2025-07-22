@@ -8,6 +8,7 @@
 import SwiftUI
 import Core
 import Sharing
+import Dependencies
 
 struct BuildItemViewContainer: View {
     var id: UUID
@@ -22,7 +23,7 @@ struct BuildItemViewContainer: View {
         _scheme = SharedReader(wrappedValue: nil, .scheme(buildId: id))
     }
     
-    @Environment(BuildManager.self) private var buildManager
+    @Dependency(\.backendService) var service
     
     var body: some View {
         BuildItemView(
@@ -31,22 +32,23 @@ struct BuildItemViewContainer: View {
         )
         .task(id: id) {
             try! await $build.load(.build(id: id))
-        }
-        .task(id: build?.schemeId) {
-            guard let schemeId = build?.schemeId else { return }
-            try! await $scheme.wrappedValue.load(Scheme.where { $0.id == schemeId })
+            try! await $scheme.load(.scheme(buildId: id))
         }
         .contentShape(.rect)
         .contextMenu {
             if build?.status == .running {
                 Button("Cancel", action: {
-                    buildManager.cancelBuild(id: id)
+                    Task {
+                        try! await service.cancelBuildJob(buildId: id)
+                    }
                 })
             }
             
             if let build, let scheme {
                 Button("Delete", role: .destructive) {
-                    buildManager.deleteBuild(build, scheme: scheme)
+                    Task {
+                        try! await service.deleteBuild(id: id)
+                    }
                 }
             }
         }

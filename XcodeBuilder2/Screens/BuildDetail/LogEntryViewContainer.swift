@@ -23,7 +23,7 @@ struct LogEntryViewContainer: View {
         LazyVStack {
             LogEntryView(log: log ?? .init(buildId: id, content: ""))
                 .task(id: id) {
-                    try? await $log.load(.buildLog(id: id))
+                    try! await $log.load(.buildLog(id: id))
                 }
         }
     }

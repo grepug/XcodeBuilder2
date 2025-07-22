@@ -7,7 +7,7 @@
 
 import SwiftUI
 import Core
-import SharingGRDB
+import Sharing
 import Dependencies
 
 #if canImport(AppKit)
@@ -16,60 +16,56 @@ import AppKit
 
 struct CrashLogContentViewContainer: View {
     let id: String
+
+    @SharedReader var fetchedCrashLog: CrashLogValue?
+    @State private var crashLog: CrashLogValue = .init()
+    @Dependency(\.backendService) var service
     
-    @FetchOne var fetchedCrashLog: CrashLog?
-    @State private var crashLog: CrashLog = .init()
+    init(id: String) {
+        self.id = id
+        _fetchedCrashLog = .init(wrappedValue: nil, .crashLog(id: id))
+    }
     
     var body: some View {
-        CrashLogContentView(crashLog: $crashLog)
-            .task(id: id) {
-                try! await $fetchedCrashLog.load(
-                    CrashLog.where { $0.incidentIdentifier == id }
-                )
+        CrashLogContentView(
+            crashLog: $crashLog,
+            workingDirectoryURL: nil,
+        )
+        .task(id: id) {
+            try! await $fetchedCrashLog.load(
+                .crashLog(id: id)
+            )
+        }
+        .task(id: fetchedCrashLog) {
+            if let fetchedCrashLog = fetchedCrashLog {
+                crashLog = fetchedCrashLog
             }
-            .task(id: fetchedCrashLog) {
-                if let fetchedCrashLog = fetchedCrashLog {
-                    crashLog = fetchedCrashLog
-                }
+        }
+        .task(id: [crashLog, id] as [AnyHashable]) {
+            let crashLog = crashLog
+            
+            guard crashLog.id == id else {
+                return
             }
-            .task(id: [crashLog, id] as [AnyHashable]) {
-                let crashLog = crashLog
-                
-                guard crashLog.id == id else {
-                    return
-                }
-                
-                guard crashLog != .init() else {
-                    return
-                }
-                
-                @Dependency(\.defaultDatabase) var db
-                
-                try! await db.write {
-                    try CrashLog
-                        .where { $0.incidentIdentifier == id }
-                        .update {
-                            $0.priority = crashLog.priority
-                            $0.note = crashLog.note
-                            $0.fixed = crashLog.fixed
-                        }
-                        .execute($0)
-                }
+            
+            guard crashLog != .init() else {
+                return
             }
+            
+            try! await service.updateCrashLog(crashLog)
+        }
     }
 }
 
 struct CrashLogContentView: View {
-    @Binding var crashLog: CrashLog
+    @Binding var crashLog: CrashLogValue
+    var workingDirectoryURL: URL?
+    
     @State private var selectedThreadNumber: Int?
     @State private var showCopyFeedback = false
     @State private var showFilenameCopyFeedback = false
-    @State private var project: Project?
     
     @Dependency(\.xcodeBuildPathManager) var pathManager
-    @FetchOne var buildModel: BuildModel?
-    @FetchOne var scheme: Scheme?
-    @FetchOne var projectFetch: Project?
     
     var selectedThread: CrashLogThread? {
         threads.first(where: { $0.number == selectedThreadNumber })
@@ -106,34 +102,6 @@ struct CrashLogContentView: View {
         .navigationSplitViewStyle(.balanced)
         .onChange(of: threads, initial: true) { _, _ in
             setInitialSelectedThread()
-        }
-        .task(id: crashLog.buildId) {
-            // Load the build model
-            try! await $buildModel.load(
-                BuildModel.where { $0.id == crashLog.buildId }
-            )
-        }
-        .task(id: buildModel) {
-            // Load the scheme when build model is available
-            if let buildModel = buildModel {
-                try! await $scheme.load(
-                    Scheme.where { $0.id == buildModel.schemeId }
-                )
-            }
-        }
-        .task(id: scheme) {
-            // Load the project when scheme is available
-            if let scheme = scheme {
-                try! await $projectFetch.load(
-                    Project.where { $0.bundleIdentifier == scheme.projectBundleIdentifier }
-                )
-            }
-        }
-        .task(id: projectFetch) {
-            // Set the project when it's loaded
-            if let projectFetch = projectFetch {
-                project = projectFetch
-            }
         }
     }
     
@@ -525,14 +493,14 @@ struct CrashLogContentView: View {
     }
     
     private func openFileInXcode(fileName: String, lineNumber: Int?) {
-        guard let project = project else { 
+        guard let workingDirectoryURL else {
             // No project available, copy filename to clipboard
             copyFilenameToClipboard(fileName)
             return 
         }
         
         // Search for the file in the project's working directory
-        if let fileURL = pathManager.findFile(named: fileName, in: project.workingDirectoryURL) {
+        if let fileURL = pathManager.findFile(named: fileName, in: workingDirectoryURL) {
             // Try to open the file
             #if canImport(AppKit)
             let success = NSWorkspace.shared.open(fileURL)
@@ -548,8 +516,8 @@ struct CrashLogContentView: View {
     }
     
     private func isFileFound(_ fileName: String) -> Bool {
-        guard let project = project else { return false }
-        return pathManager.findFile(named: fileName, in: project.workingDirectoryURL) != nil
+        guard let workingDirectoryURL else { return false }
+        return pathManager.findFile(named: fileName, in: workingDirectoryURL) != nil
     }
     
     private func isFileFoundInProject(_ fileName: String?) -> Bool {

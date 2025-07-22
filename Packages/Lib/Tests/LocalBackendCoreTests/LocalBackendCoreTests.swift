@@ -12,7 +12,7 @@ struct LocalBackendCoreTests {
     // MARK: - Test Fixtures
     
     private func createTestService() -> LocalBackendService {
-        setupCacheDatabase(path: .inMemory)
+        setupLocalBackend(path: .inMemory)
         return LocalBackendService()
     }
     

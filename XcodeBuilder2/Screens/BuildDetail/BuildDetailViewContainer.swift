@@ -47,11 +47,11 @@ struct BuildDetailViewContainer: View {
             }
         }
         .task(id: buildId) {
-            try? await $build.load(.build(id: buildId))
-            try? await $crashLogIds.load(.crashLogIds(buildId: buildId))
+            try! await $build.load(.build(id: buildId))
+            try! await $crashLogIds.load(.crashLogIds(buildId: buildId))
         }
         .task(id: [buildId, showDebugLogs, selectedCategory] as [AnyHashable]) {
-            try? await $logIds.load(.buildLogIds(buildId: buildId, includeDebug: showDebugLogs, category: selectedCategory?.rawValue))
+            try! await $logIds.load(.buildLogIds(buildId: buildId, includeDebug: showDebugLogs, category: selectedCategory?.rawValue))
         }
     }
 }

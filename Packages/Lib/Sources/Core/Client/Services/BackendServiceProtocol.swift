@@ -63,9 +63,9 @@ public protocol BackendService: Sendable {
     
     func createBuildJob(payload: XcodeBuildPayload) async throws
     func startBuildJob(buildId: UUID) -> BuildProgressSequence  
-    func cancelBuildJob(buildId: UUID) async
+    func cancelBuildJob(buildId: UUID) async throws
     func deleteBuildJob(buildId: UUID) async throws
-    func getBuildJobStatus(buildId: UUID) -> BuildJobStatus?
+    func getBuildJobStatus(buildId: UUID) async throws -> BuildJobStatus?
     
     // MARK: - Git Repository Operations
     func fetchVersions(remoteURL: URL) async throws -> [Version]

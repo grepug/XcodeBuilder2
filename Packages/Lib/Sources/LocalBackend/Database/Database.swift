@@ -178,7 +178,9 @@ public enum DatabasePath {
     case stored(path: String), inMemory
 }
 
-public func setupCacheDatabase(path: DatabasePath = .inMemory) {
-    prepareDependencies { $0.defaultDatabase = .observableModelDatabase(path: path) }
+public func setupLocalBackend(path: DatabasePath = .inMemory) {
+    prepareDependencies {
+        $0.defaultDatabase = .observableModelDatabase(path: path)
+        $0.backendService = LocalBackendService()
+    }
 }
-

@@ -70,7 +70,7 @@ public protocol BuildLogProtocol: Sendable, Identifiable {
     var createdAt: Date { get }
 }
 
-public protocol CrashLogProtocol: Sendable, Identifiable {
+public protocol CrashLogProtocol: Sendable, Identifiable, Hashable {
     var incidentIdentifier: String { get }
     var isMainThread: Bool { get }
     var createdAt: Date { get }
@@ -86,6 +86,12 @@ public protocol CrashLogProtocol: Sendable, Identifiable {
     var fixed: Bool { get }
     var priority: CrashLogPriority { get }
     var id: String { get }
+}
+
+public extension CrashLogProtocol {
+    var parsedThreads: [CrashLogThread] {
+        parseThreadInfo(content: content)
+    }
 }
 
 // MARK: - Supporting Enums
@@ -176,13 +182,13 @@ public extension CrashLogProtocol {
 
 // MARK: - Value Types for Backend Communication
 public struct ProjectValue: ProjectProtocol {
-    public let bundleIdentifier: String
-    public let name: String
-    public let displayName: String
-    public let gitRepoURL: URL
-    public let xcodeprojName: String
-    public let workingDirectoryURL: URL
-    public let createdAt: Date
+    public var bundleIdentifier: String
+    public var name: String
+    public var displayName: String
+    public var gitRepoURL: URL
+    public var xcodeprojName: String
+    public var workingDirectoryURL: URL
+    public var createdAt: Date
 
     public var id: String { bundleIdentifier }
 
@@ -312,35 +318,35 @@ public struct BuildLogValue: BuildLogProtocol {
 }
 
 public struct CrashLogValue: CrashLogProtocol {
-    public let incidentIdentifier: String
-    public let isMainThread: Bool
-    public let createdAt: Date
+    public var incidentIdentifier: String
+    public var isMainThread: Bool
+    public var createdAt: Date
     public var buildId: UUID
-    public let content: String
-    public let hardwareModel: String
-    public let process: String
-    public let role: CrashLogRole
-    public let dateTime: Date
-    public let launchTime: Date
-    public let osVersion: String
-    public let note: String
-    public let fixed: Bool
-    public let priority: CrashLogPriority
+    public var content: String
+    public var hardwareModel: String
+    public var process: String
+    public var role: CrashLogRole
+    public var dateTime: Date
+    public var launchTime: Date
+    public var osVersion: String
+    public var note: String
+    public var fixed: Bool
+    public var priority: CrashLogPriority
 
     public var id: String { incidentIdentifier }
 
     public init(
-        incidentIdentifier: String,
-        isMainThread: Bool,
+        incidentIdentifier: String = "",
+        isMainThread: Bool = false,
         createdAt: Date = .now,
-        buildId: UUID,
-        content: String,
-        hardwareModel: String,
-        process: String,
-        role: CrashLogRole,
-        dateTime: Date,
-        launchTime: Date,
-        osVersion: String,
+        buildId: UUID = .init(),
+        content: String = "",
+        hardwareModel: String = "",
+        process: String = "",
+        role: CrashLogRole = .foreground,
+        dateTime: Date = .now,
+        launchTime: Date = .now,
+        osVersion: String = "",
         note: String = "",
         fixed: Bool = false,
         priority: CrashLogPriority = .medium

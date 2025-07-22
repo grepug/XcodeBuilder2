@@ -1,67 +1,41 @@
 //
-//  ProjectListContainer.swift
+//  ProjectList.swift
 //  XcodeBuilder2
 //
-//  Created by Kai Shao on 2025/7/22.
+//  Created by Kai Shao on 2025/7/13.
 //
 
 import SwiftUI
 import Core
 import Sharing
 
-/// Container View Pattern - handles @SharedReader data loading for backend-agnostic UI
+// MARK: - Presentation View Pattern (Pure SwiftUI)
 struct ProjectListContainer: View {
-    @SharedReader private var projectIds: [String] = []
-
-    init() {
-        _projectIds = .init(wrappedValue: [], .allProjectIds)
-    }
-    // }
-
-    var body: some View {
-        NavigationView {
-            VStack {
-                Text("Project List Container (Step 7 Pattern)")
-                    .font(.title)
-                    .padding()
-                
-                ForEach(projectIds, id: \.self) { projectId in
-                    ProjectListItemViewContainer(projectId: projectId)
-                }
-                
-                Spacer()
-            }
-            .navigationTitle("Projects")
-        }
-        .task {
-            try? await $projectIds.load(.allProjectIds)
-        }
-    }
-}
-
-/// Simple project item view to demonstrate the pattern
-struct ProjectItemView: View {
-    let projectId: String
+    @SharedReader(.allProjectIds) var projectIds: [String]
+    
+    @Environment(EntryViewModel.self) var vm
     
     var body: some View {
-        HStack {
-            VStack(alignment: .leading) {
-                Text("Project: \(projectId)")
-                    .font(.headline)
-                Text("Schemes: 2, Builds: 3")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            Spacer()
-            Image(systemName: "chevron.right")
-                .foregroundColor(.secondary)
+        @Bindable var vm = vm
+        
+        List(projectIds, id: \.self, selection: $vm.projectSelection) { projectId in
+            ProjectListItemViewContainer(projectId: projectId)
+                .padding(.vertical, 4)
         }
-        .padding()
-        .background(.gray.opacity(0.1))
-        .cornerRadius(8)
+        .onChange(of: projectIds) { oldValue, newValue in
+            if let selection = vm.projectSelection, !newValue.contains(selection) {
+                vm.projectSelection = nil
+            }
+        }
+        .onChange(of: projectIds, initial: true) { oldValue, newValue in
+            if vm.projectSelection == nil, let first = newValue.first {
+                vm.projectSelection = first
+            }
+        }
+        .onChange(of: vm.projectSelection) { oldValue, newValue in
+            if newValue != nil {
+                vm.buildSelection = nil
+            }
+        }
     }
-}
-
-#Preview {
-    ProjectListContainer()
 }

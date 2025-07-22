@@ -7,10 +7,53 @@
 
 import SwiftUI
 import Core
+import Sharing
+
+struct ProjectEditorViewContainer: View {
+    var id: String?
+    
+    @State private var project: ProjectValue = .init()
+    @State private var schemes: [SchemeValue] = []
+    
+    var creating: Bool {
+        id == nil
+    }
+    
+    var body: some View {
+        ProjectEditorView(
+            project: $project,
+            schemes: $schemes,
+        )
+        .task {
+            if !creating {
+                @SharedReader(.project(id: project.id))
+                var project: ProjectValue?
+                
+                if let project {
+                    self.project = project
+                } else {
+                    assertionFailure()
+                }
+            }
+        }
+        .task(id: project.id) {
+            if !creating {
+                @SharedReader(.schemes(projectId: project.id))
+                var schemes: [SchemeValue] = []
+                
+                if !schemes.isEmpty {
+                    self.schemes = schemes
+                } else {
+                    assertionFailure("Schemes should not be empty for existing project")
+                }
+            }
+        }
+    }
+}
 
 struct ProjectEditorView: View {
-    @Binding var project: Project
-    @Binding var schemes: [Scheme]
+    @Binding var project: ProjectValue
+    @Binding var schemes: [SchemeValue]
     
     var dismiss: (() -> Void)!
     var save: (() -> Void)!
@@ -54,7 +97,7 @@ struct ProjectEditorView: View {
                 
                 Button {
                     let number = schemes.count + 1
-                    schemes.append(Scheme(name: "New Scheme \(number)", platforms: [.iOS]))
+                    schemes.append(.init(name: "New Scheme \(number)", platforms: [.iOS]))
                 } label: {
                     Image(systemName: "plus")
                 }
@@ -81,7 +124,7 @@ struct ProjectEditorView: View {
     }
     
     func schemeView(
-        for scheme: Binding<Scheme>,
+        for scheme: Binding<SchemeValue>,
         index: Int,
         onDelete: @escaping () -> Void,
         moveUp: @escaping () -> Void = {},
@@ -181,8 +224,8 @@ extension Binding {
 }
 
 #Preview {
-    @Previewable @State var project = Project()
-    @Previewable @State var schemes: [Scheme] = []
+    @Previewable @State var project = ProjectValue()
+    @Previewable @State var schemes: [SchemeValue] = []
     
     ProjectEditorView(project: $project, schemes: $schemes)
 }

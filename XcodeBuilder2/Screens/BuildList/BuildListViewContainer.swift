@@ -12,7 +12,7 @@ import SharingGRDB
 struct BuildListViewContainer: View {
     var versionString: String
     
-    @Environment(BuildManager.self) private var buildManager
+//    @Environment(BuildManager.self) private var buildManager
     @Environment(EntryViewModel.self) private var entryVM
     
     var body: some View {

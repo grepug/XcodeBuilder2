@@ -191,7 +191,7 @@ public struct BackendQueryKey<Value: Sendable>: SharedReaderKey {
         if await resultHolder.hasValue() {
           break
         }
-        try? await Task.sleep(for: .milliseconds(1)) // 1ms
+        try! await Task.sleep(for: .milliseconds(1)) // 1ms
         attempts += 1
       }
       

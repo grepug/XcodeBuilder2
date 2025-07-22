@@ -8,6 +8,7 @@
 import SwiftUI
 import Dependencies
 import Core
+import LocalBackend
 
 struct CrashLogWindowGroup: Codable, Hashable {
     let id: String
@@ -21,7 +22,7 @@ struct XcodeBuilder2App: App {
                 .appendingPathComponent("db.sqlite")
         ).path()
         
-        setupCacheDatabase(path: .stored(path: path))
+        setupLocalBackend(path: .stored(path: path))
     }
     
     var body: some Scene {

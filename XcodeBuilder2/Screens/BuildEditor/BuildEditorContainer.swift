@@ -41,8 +41,9 @@ struct BuildEditorContainer: View {
     
     @State private var errorMessage: String?
     
-    @Environment(BuildManager.self) private var buildManager
     @Environment(EntryViewModel.self) private var entryVM
+    
+    @Dependency(\.backendService) private var service
     
     var project: ProjectValue {
         loadedProject ?? ProjectValue(displayName: "Loading...")
@@ -142,21 +143,22 @@ struct BuildEditorContainer: View {
         }
         
         do {
-            try await buildManager.createJob(
-                payload: .init(
-                    project: project,
-                    scheme: scheme,
-                    build: buildModel,
-                    gitCloneKind: gitCloneKind,
-                    exportOptions: buildModel.exportOptions,
-                ),
-                buildModel: buildModel,
-            )
+            try await service.createBuildJob(payload: .init(
+                project: project,
+                scheme: scheme,
+                build: buildModel,
+                gitCloneKind: gitCloneKind,
+                exportOptions: buildModel.exportOptions,
+            ))
             
             dismiss!()
             entryVM.buildSelection = buildModel.id
         } catch {
-            showingError = error
+            if let error = error as? LocalizedError {
+                showingError = error
+            } else {
+                assertionFailure()
+            }
         }
     }
     

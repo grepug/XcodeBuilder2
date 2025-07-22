@@ -246,7 +246,7 @@ public struct LocalBackendService: BackendService {
     }
     
     /// Cancel a running build job - LOCAL CLI CANCELLATION
-    public func cancelBuildJob(buildId: UUID) async {
+    public func cancelBuildJob(buildId: UUID) async throws {
         await buildJobManager.cancelBuildJob(buildId: buildId)
     }
     
@@ -256,7 +256,7 @@ public struct LocalBackendService: BackendService {
     }
     
     /// Get build job status - query from database or in-memory tracking
-    public func getBuildJobStatus(buildId: UUID) -> BuildJobStatus? {
+    public func getBuildJobStatus(buildId: UUID) async throws -> BuildJobStatus? {
         // For now, return nil - this will be implemented when we have proper state tracking
         // The synchronous protocol requirement makes it difficult to use the actor
         return nil

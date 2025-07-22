@@ -47,7 +47,7 @@ struct ProjectRowView: View {
     .task {
       // Load project details when view appears
       $project = SharedReader(wrappedValue: nil, .project(id: projectId))
-      try? await $project.load()
+      try! await $project.load()
     }
   }
 }

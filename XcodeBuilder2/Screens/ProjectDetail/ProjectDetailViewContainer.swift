@@ -13,12 +13,11 @@ struct ProjectDetailViewContainer: View {
     var id: String
     
     @SharedReader private var project: ProjectValue?
-    @SharedReader private var schemeIds: [UUID]
     @SharedReader private var versionStrings: [String]
     @SharedReader private var builds: [BuildModelValue]
+    @SharedReader private var schemes: [SchemeValue]
     
     @Environment(EntryViewModel.self) private var entryVM
-    @Environment(BuildManager.self) private var buildManager
     
     @State private var tabSelection = ProjectDetailTab.overview
     @State private var versionSelection: String? = nil
@@ -26,9 +25,9 @@ struct ProjectDetailViewContainer: View {
     init(id: String) {
         self.id = id
         _project = .init(wrappedValue: nil, .project(id: id))
-        _schemeIds = .init(wrappedValue: [], .schemeIds(projectId: id))
         _versionStrings = .init(wrappedValue: [], .buildVersionStrings(projectId: id))
         _builds = .init(wrappedValue: [], .latestBuilds(projectId: id, limit: 100))
+        _schemes = .init(wrappedValue: [], .schemes(projectId: id))
     }
     
     var body: some View {
@@ -36,8 +35,7 @@ struct ProjectDetailViewContainer: View {
         
         ProjectDetailView(
             project: project ?? .init(),
-            // TODO: Fetch schemes from the database
-            schemes: [],
+            schemes: schemes,
             builds: builds,
             availableVersions: versionStrings,
             versionSelection: $versionSelection,

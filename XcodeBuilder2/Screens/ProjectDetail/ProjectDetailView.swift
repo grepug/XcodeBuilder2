@@ -19,8 +19,6 @@ enum ProjectDetailTab: String, CaseIterable {
     case builds = "Builds"
 }
 
-
-
 struct ProjectDetailView: View {
     var project: ProjectValue
     var schemes: [SchemeValue] = []
@@ -32,7 +30,7 @@ struct ProjectDetailView: View {
     @Binding var buildSelection: UUID?
     
     var cancelBuild: ((UUID) -> Void)?
-    var deleteBuild: ((BuildModel) -> Void)?
+    var deleteBuild: ((UUID) -> Void)?
     
     var buildIds: [UUID] {
         builds.map { $0.id }
@@ -663,7 +661,7 @@ struct StatCard: View {
 }
 
 struct SchemeCard: View {
-    let scheme: Scheme
+    let scheme: SchemeValue
     let buildAction: () -> Void
     
     var body: some View {
@@ -909,7 +907,7 @@ struct BuildTimeBarChart: View {
 #Preview("With Data") {
     NavigationView {
         ProjectDetailView(
-            project: Project(
+            project: ProjectValue(
                 bundleIdentifier: "com.example.myapp",
                 name: "MyApp",
                 displayName: "My Awesome App",
@@ -917,17 +915,17 @@ struct BuildTimeBarChart: View {
                 xcodeprojName: "MyApp.xcodeproj"
             ),
             schemes: [
-                Scheme(
+                SchemeValue(
                     id: UUID(),
                     name: "Debug",
                     platforms: [.iOS, .macOS]
                 ),
-                Scheme(
+                SchemeValue(
                     id: UUID(),
                     name: "Release",
                     platforms: [.iOS]
                 ),
-                Scheme(
+                SchemeValue(
                     id: UUID(),
                     name: "Beta",
                     platforms: [.iOS, .macCatalyst]
@@ -948,7 +946,7 @@ struct BuildTimeBarChart: View {
 #Preview("Empty State") {
     NavigationView {
         ProjectDetailView(
-            project: Project(
+            project: ProjectValue(
                 bundleIdentifier: "com.example.empty",
                 displayName: "Empty Project"
             ),

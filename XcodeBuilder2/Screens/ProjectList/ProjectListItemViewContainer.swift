@@ -13,9 +13,9 @@ import Sharing
 struct ProjectListItemViewContainer: View {
     let projectId: String
 
-    @SharedReader private var project: ProjectValue? = nil
-    @SharedReader private var schemeIds: [UUID] = []
-    @SharedReader private var recentBuilds: [BuildModelValue] = []
+    @SharedReader private var project: ProjectValue?
+    @SharedReader private var schemeIds: [UUID]
+    @SharedReader private var recentBuilds: [BuildModelValue]
 
     init(projectId: String) {
         self.projectId = projectId
@@ -31,9 +31,9 @@ struct ProjectListItemViewContainer: View {
             recentBuilds: recentBuilds
         )
         .task(id: projectId) {
-            try? await $project.load(.project(id: projectId))
-            try? await $schemeIds.load(.schemeIds(projectId: projectId))
-            try? await $recentBuilds.load(.latestBuilds(projectId: projectId, limit: 3))
+            try! await $project.load(.project(id: projectId))
+            try! await $schemeIds.load(.schemeIds(projectId: projectId))
+            try! await $recentBuilds.load(.latestBuilds(projectId: projectId, limit: 3))
         }
     }
 }
