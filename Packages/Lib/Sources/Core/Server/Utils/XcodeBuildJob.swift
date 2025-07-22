@@ -10,40 +10,8 @@ private extension DateFormatter {
     }()
 }
 
-public struct XcodeBuildPayload {
-    public enum GitCloneKind {
-        case tag
-        case branch(String)
-    }
-    
-    let project: Project
-    let scheme: Scheme
-    let gitCloneKind: GitCloneKind
-    let exportOptions: [ExportOption]
-    let build: BuildModel
-    
-    var version: Version {
-        build.version
-    }
-    
-    var buildId: UUID {
-        build.id
-    }
-
-    public init(project: Project, scheme: Scheme, build: BuildModel, gitCloneKind: GitCloneKind, exportOptions: [ExportOption]) {
-        self.project = project
-        self.scheme = scheme
-        self.build = build
-        self.gitCloneKind = gitCloneKind
-        self.exportOptions = exportOptions
-    }
-}
-
-public struct XcodeBuildProgress: Sendable {
-    public let progress: Double
-    public let message: String
-    public var isFinished = false
-}
+// XcodeBuildPayload is now in Core/Shared/Models/BuildPayload.swift
+// XcodeBuildProgress is now in Core/Shared/Models/BuildPayload.swift
 
 public enum XcodeBuildJobLogCategory: String, Sendable, CaseIterable {
     case clone = "Clone Repository"

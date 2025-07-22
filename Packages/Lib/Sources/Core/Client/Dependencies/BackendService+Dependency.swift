@@ -69,7 +69,7 @@ private struct MockBackendService: BackendService, Sendable {
   func streamBuildVersionStrings(projectId: String) -> BuildVersionStringsSequence { AsyncJustSequence([]) }
   
   // MARK: - Build Job Methods (Step 6)
-  func createBuildJob(payload: BuildJobPayload, buildModel: BuildModelValue) async throws {}
+  func createBuildJob(payload: XcodeBuildPayload) async throws {}
   func startBuildJob(buildId: UUID) -> BuildProgressSequence { 
     AsyncThrowingJustSequence(BuildProgressUpdate(buildId: buildId, progress: 0.0, message: "Mock build job"))
   }
