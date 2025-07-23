@@ -90,3 +90,38 @@ private struct ProjectVersionStringsRequest: FetchKeyRequest {
         return Value(versionsByProject: result)
     }
 }
+
+private struct ProjectDetailRequest: FetchKeyRequest {
+    var id: String
+    
+    struct Result: Sendable {
+        let project: Project
+        let builds: [BuildModel]
+        let schemes: [Scheme]
+    }
+
+    init(id: String) {
+        self.id = id
+    }
+    
+    func fetch(_ db: Database) throws -> Result? {
+        guard let project = (try Project.where { $0.bundleIdentifier == id }
+            .fetchOne(db)) else {
+                print("Project with bundle identifier \(id) not found")
+                return nil
+            }
+        
+        let schemes = try Scheme
+            .where { $0.projectBundleIdentifier == id }
+            .fetchAll(db)
+            .sorted()
+        
+        let builds = try BuildModel
+            .where { $0.schemeId.in(schemes.map(\.id)) }
+            .order { $0.createdAt.desc() }
+            .fetchAll(db)
+        
+        return .init(project: project, builds: builds, schemes: schemes)
+    }
+}
+
