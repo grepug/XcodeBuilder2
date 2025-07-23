@@ -56,7 +56,7 @@ public struct GitCommand {
     
     public static func fetchVersions(remoteURL: URL) async throws -> [Version] {
         let command = "git ls-remote --tags \(remoteURL.absoluteString)"
-        let res = try await runShellCommandComplete(command).combinedOutput
+        let res = try await runShellCommand2(command).get()
         let lines = res.split(separator: "\n")
         
         var versions: [Version] = []
@@ -93,7 +93,7 @@ public struct GitCommand {
 
     public static func fetchBranches(remoteURL: URL) async throws -> [GitBranch] {
         let command = "git ls-remote --heads \(remoteURL.absoluteString)"
-        let res = try await runShellCommandComplete(command).combinedOutput
+        let res = try await runShellCommand2(command).get()
         let lines = res.split(separator: "\n")
 
         var branches: [GitBranch] = []
